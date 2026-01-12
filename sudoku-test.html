@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Sudoku Game — Mobile Optimized</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #f0f0f0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px; /* Reduced padding for mobile */
+    min-height: 100vh;
+  }
+  h1 { margin: 10px 0; font-size: 1.5rem; }
+  
+  #controls { 
+    text-align: center; 
+    margin-bottom: 10px; 
+    width: 100%;
+    max-width: 500px;
+  }
+
+  /* 2. Responsive Board using CSS Grid and Viewport Units */
+  .board {
+    display: grid;
+    /* Use fractions (1fr) instead of fixed pixels so it shrinks/grows */
+    grid-template-columns: repeat(9, 1fr);
+    grid-template-rows: repeat(9, 1fr);
+    background: black;
+    margin-bottom: 15px;
+    width: 100%; /* Take full width */
+    max-width: 450px; /* Stop growing on desktop */
+    aspect-ratio: 1; /* Force it to remain a perfect square */
+    border: 2px solid black;
+  }
+
+  .cell {
+    width: 100%; 
+    height: 100%;
+    text-align: center; 
+    /* Fluid font size based on container width */
+    font-size: clamp(16px, 5vw, 24px); 
+    background: white; 
+    border: 1px solid #ccc;
+    box-sizing: border-box; 
+    outline: none;
+    padding: 0;
+    margin: 0;
+    border-radius: 0; /* Fix for iOS rounded corners on inputs */
+    -webkit-appearance: none; /* Remove iOS default input styling */
+    color: black; /* Prevent iOS showing numbers as blue links */
+  }
+
+  /* Thicker borders for 3x3 grids */
+  .cell.border-top { border-top: 2px solid black; }
+  .cell.border-left { border-left: 2px solid black; }
+  /* Only apply bottom/right borders to the very edge if needed, 
+     but grid gap or container border usually handles edges better. 
+     Keeping your logic but ensuring it doesn't break layout: */
+  .cell.border-right { border-right: 2px solid black; }
+  .cell.border-bottom { border-bottom: 2px solid black; }
+
+  .cell.fixed { background: #e0e0e0; font-weight: bold; color: #333; }
+  .cell.invalid { color: red; background-color: #ffe6e6; }
+  .highlighted { background: #dbefff !important; }
+  
+  button {
+    font-size: 1rem;
+    padding: 0.6em 1em; /* Larger touch target */
+    margin: 5px;
+    cursor: pointer;
+    border: none;
+    background-color: #5282b5;
+    color: white;
+    border-radius: 4px;
+    touch-action: manipulation; /* Improves tap response */
+  }
+
+  button:hover { background-color: #355a79; }
+
+  .preset-box {
+    border: 2px solid #ccc;
+    padding: 10px;
+    width: 100%;
+    max-width: 500px;
+    margin-top: 0.5em;
+    box-sizing: border-box;
+  }
+
+  /* 3. Wrap presets for small screens */
+  .preset-section {
+    display: flex; 
+    gap: 10px; 
+    justify-content: space-around;
+    flex-wrap: wrap; 
+  }
+  
+  select {
+    padding: 8px; 
+    font-size: 16px; /* Prevents iOS zoom on focus */
+    width: 100%;
+    margin-top: 5px;
+  }
+  .preset-group { flex: 1; min-width: 80px; text-align: center; }
+
+</style>
+</head>
+<body>
+  <h1>Sudoku Game</h1>
+
+  <div id="controls">
+    <label for="difficulty">Random Difficulty: <span id="difficultyLabel">Easy</span></label><br>
+    <input type="range" id="difficulty" min="1" max="100" value="30" style="width: 80%; margin: 10px 0;" />
+    <br>
+    <button onclick="resetBoard()">Reset</button>
+    <button onclick="newGame()">New Game</button>
+  </div>
+
+  <div id="timer">Time: 00:00</div>
+  <div class="board" id="sudokuBoard"></div>
+  <div id="message" style="font-weight:bold; font-size: 1.2em; height: 1.5em;"></div>
+  
+  <fieldset class="preset-box">
+    <legend>Preset Games</legend>
+    <div class="preset-section">
+        <div class="preset-group">
+        <strong>Easy</strong><br />
+        <select id="easyPreset" onchange="selectPreset('easy', this)">
+            <option value="">--</option>
+        </select>
+        </div>
+        <div class="preset-group">
+        <strong>Medium</strong><br />
+        <select id="mediumPreset" onchange="selectPreset('medium', this)">
+            <option value="">--</option>
+        </select>
+        </div>
+        <div class="preset-group">
+        <strong>Hard</strong><br />
+        <select id="hardPreset" onchange="selectPreset('hard', this)">
+            <option value="">--</option>
+        </select>
+        </div>
+    </div>
+  </fieldset>
+
+<script>
+// --- PASTED JSON DATA STARTS HERE ---
+const presets = {
+  "easy": [
+    {
+      "puzzle": [
+        [3, 7, null, null, 2, 5, 6, 1, 9],
+        [9, 4, null, 7, null, 6, null, null, 3],
+        [2, null, 6, 1, null, 3, 4, 7, 8],
+        [null, 1, 2, 6, 4, null, null, 9, 7],
+        [6, 9, 3, null, null, 7, 8, null, 4],
+        [null, 8, 7, null, null, 9, 1, 6, 2],
+        [null, 6, 4, 9, 3, null, 2, null, 5],
+        [1, null, 5, 8, null, null, null, null, null],
+        [null, 2, null, 5, 6, null, null, 3, 1]
+      ],
+      "solution": [
+        [3, 7, 8, 4, 2, 5, 6, 1, 9],
+        [9, 4, 1, 7, 8, 6, 5, 2, 3],
+        [2, 5, 6, 1, 9, 3, 4, 7, 8],
+        [5, 1, 2, 6, 4, 8, 3, 9, 7],
+        [6, 9, 3, 2, 1, 7, 8, 5, 4],
+        [4, 8, 7, 3, 5, 9, 1, 6, 2],
+        [7, 6, 4, 9, 3, 1, 2, 8, 5],
+        [1, 3, 5, 8, 7, 2, 9, 4, 6],
+        [8, 2, 9, 5, 6, 4, 7, 3, 1]
+      ]
+    },
+    {
+      "puzzle": [
+        [null, null, null, 8, 6, 3, 7, null, 1],
+        [1, null, null, 4, null, 2, 5, 8, null],
+        [2, 6, 8, 1, 5, 7, 4, null, 9],
+        [8, null, null, 9, null, null, 2, null, 7],
+        [4, null, null, 7, null, 8, null, 6, null],
+        [9, null, null, 2, 4, 5, null, null, 8],
+        [7, null, 5, 3, 8, 4, 6, null, 2],
+        [null, null, null, 6, 7, 9, null, 5, 4],
+        [6, 4, 9, 5, 2, 1, 8, 7, null]
+      ],
+      "solution": [
+        [5, 9, 4, 8, 6, 3, 7, 2, 1],
+        [1, 3, 7, 4, 9, 2, 5, 8, 6],
+        [2, 6, 8, 1, 5, 7, 4, 3, 9],
+        [8, 5, 1, 9, 3, 6, 2, 4, 7],
+        [4, 2, 3, 7, 1, 8, 9, 6, 5],
+        [9, 7, 6, 2, 4, 5, 3, 1, 8],
+        [7, 1, 5, 3, 8, 4, 6, 9, 2],
+        [3, 8, 2, 6, 7, 9, 1, 5, 4],
+        [6, 4, 9, 5, 2, 1, 8, 7, 3]
+      ]
+    },
+    {
+      "puzzle": [
+        [null, 5, 1, 6, 7, 8, 4, null, 9],
+        [9, 4, null, 1, 5, null, 2, null, null],
+        [6, null, 7, 9, 4, 2, null, 5, 8],
+        [null, 9, null, 7, 8, null, null, 1, null],
+        [4, 7, null, 3, 6, 1, 8, null, null],
+        [1, 8, 6, 2, 9, null, 7, null, 3],
+        [7, 6, 3, null, 2, null, null, null, null],
+        [5, null, 4, null, 3, 6, 9, null, null],
+        [null, 2, 9, null, 1, null, 3, 6, 4]
+      ],
+      "solution": [
+        [2, 5, 1, 6, 7, 8, 4, 3, 9],
+        [9, 4, 8, 1, 5, 3, 2, 7, 6],
+        [6, 3, 7, 9, 4, 2, 1, 5, 8],
+        [3, 9, 2, 7, 8, 4, 6, 1, 5],
+        [4, 7, 5, 3, 6, 1, 8, 9, 2],
+        [1, 8, 6, 2, 9, 5, 7, 4, 3],
+        [7, 6, 3, 4, 2, 9, 5, 8, 1],
+        [5, 1, 4, 8, 3, 6, 9, 2, 7],
+        [8, 2, 9, 5, 1, 7, 3, 6, 4]
+      ]
+    },
+    {
+      "puzzle": [
+        [8, 2, null, 3, 1, 9, 5, null, null],
+        [1, 4, 7, null, 5, null, null, 3, 8],
+        [null, null, 5, null, 7, 8, 2, 1, 6],
+        [null, 3, 9, 8, 6, null, null, null, 1],
+        [null, null, null, 5, 2, null, null, 9, 3],
+        [6, null, null, 1, 9, null, 8, 5, null],
+        [9, 5, 8, 6, null, 1, 3, 7, null],
+        [7, null, null, 9, 8, 2, 4, 6, null],
+        [2, 6, 4, null, null, 5, 1, 8, null]
+      ],
+      "solution": [
+        [8, 2, 6, 3, 1, 9, 5, 4, 7],
+        [1, 4, 7, 2, 5, 6, 9, 3, 8],
+        [3, 9, 5, 4, 7, 8, 2, 1, 6],
+        [5, 3, 9, 8, 6, 4, 7, 2, 1],
+        [4, 8, 1, 5, 2, 7, 6, 9, 3],
+        [6, 7, 2, 1, 9, 3, 8, 5, 4],
+        [9, 5, 8, 6, 4, 1, 3, 7, 2],
+        [7, 1, 3, 9, 8, 2, 4, 6, 5],
+        [2, 6, 4, 7, 3, 5, 1, 8, 9]
+      ]
+    },
+    {
+      "puzzle": [
+        [null, 5, null, 7, 9, 4, 2, null, 6],
+        [2, 6, 9, 3, 5, 8, 1, 4, 7],
+        [null, 3, null, 1, null, null, null, 9, 8],
+        [null, 9, null, null, 4, 1, 6, null, null],
+        [1, 8, 4, 6, 7, null, 3, null, null],
+        [null, 7, 6, null, 2, 3, null, 8, 1],
+        [7, 1, null, null, 3, 6, null, null, 2],
+        [null, null, 5, 2, null, 7, 8, null, 3],
+        [null, 2, 3, 5, null, 9, 7, null, 4]
+      ],
+      "solution": [
+        [8, 5, 1, 7, 9, 4, 2, 3, 6],
+        [2, 6, 9, 3, 5, 8, 1, 4, 7],
+        [4, 3, 7, 1, 6, 2, 5, 9, 8],
+        [3, 9, 2, 8, 4, 1, 6, 7, 5],
+        [1, 8, 4, 6, 7, 5, 3, 2, 9],
+        [5, 7, 6, 9, 2, 3, 4, 8, 1],
+        [7, 1, 8, 4, 3, 6, 9, 5, 2],
+        [9, 4, 5, 2, 1, 7, 8, 6, 3],
+        [6, 2, 3, 5, 8, 9, 7, 1, 4]
+      ]
+    },
+    {
+      "puzzle": [
+        [null, null, 3, 1, null, 7, 2, null, 9],
+        [4, null, 1, null, null, 2, null, null, 7],
+        [7, 9, 2, 5, 6, 8, null, null, null],
+        [null, null, 4, 8, 5, 6, 7, 9, 2],
+        [null, null, 8, 2, null, 9, 4, null, null],
+        [9, 2, null, null, 1, 4, 8, null, 6],
+        [3, 1, null, null, 8, 5, null, 2, null],
+        [2, 8, null, null, 7, 1, 5, 6, 3],
+        [5, null, 6, 9, null, 3, 1, 7, 8]
+      ],
+      "solution": [
+        [8, 6, 3, 1, 4, 7, 2, 5, 9],
+        [4, 5, 1, 3, 9, 2, 6, 8, 7],
+        [7, 9, 2, 5, 6, 8, 3, 4, 1],
+        [1, 3, 4, 8, 5, 6, 7, 9, 2],
+        [6, 7, 8, 2, 3, 9, 4, 1, 5],
+        [9, 2, 5, 7, 1, 4, 8, 3, 6],
+        [3, 1, 7, 6, 8, 5, 9, 2, 4],
+        [2, 8, 9, 4, 7, 1, 5, 6, 3],
+        [5, 4, 6, 9, 2, 3, 1, 7, 8]
+      ]
+    },
+    {
+      "puzzle": [
+        [null, 6, 3, null, 7, null, 5, 4, 8],
+        [null, 4, null, null, null, 5, null, 2, 9],
+        [1, null, null, 8, 4, 2, 7, null, null],
+        [null, 7, 5, 4, 1, 6, null, 9, 2],
+        [8, 2, null, 7, 9, 3, null, 5, null],
+        [9, 1, 6, null, null, 8, 4, null, null],
+        [6, 3, 1, 2, null, null, 9, null, null],
+        [5, 8, null, 9, 6, 7, 3, 1, null],
+        [4, null, 7, 3, 5, 1, null, 8, null]
+      ],
+      "solution": [
+        [2, 6, 3, 1, 7, 9, 5, 4, 8],
+        [7, 4, 8, 6, 3, 5, 1, 2, 9],
+        [1, 5, 9, 8, 4, 2, 7, 6, 3],
+        [3, 7, 5, 4, 1, 6, 8, 9, 2],
+        [8, 2, 4, 7, 9, 3, 6, 5, 1],
+        [9, 1, 6, 5, 2, 8, 4, 3, 7],
+        [6, 3, 1, 2, 8, 4, 9, 7, 5],
+        [5, 8, 2, 9, 6, 7, 3, 1, 4],
+        [4, 9, 7, 3, 5, 1, 2, 8, 6]
+      ]
+    },
+    {
+      "puzzle": [
+        [null, 5, null, 8, 9, 7, 1, null, 3],
+        [null, null, 4, 2, 6, 5, 8, 9, 7],
+        [null, 7, null, null, null, null, null, null, null],
+        [null, 9, 3, 1, null, 8, 5, 6, null],
+        [null, null, 6, null, 5, 3, null, 8, null],
+        [4, 8, 5, 6, null, 9, 7, 3, 1],
+        [3, 4, null, 9, 8, 2, 6, null, 5],
+        [null, 2, 9, 3, null, 6, 4, 7, null],
+        [null, 6, null, 5, 7, null, 3, 2, 9]
+      ],
+      "solution": [
+        [6, 5, 2, 8, 9, 7, 1, 4, 3],
+        [1, 3, 4, 2, 6, 5, 8, 9, 7],
+        [9, 7, 8, 4, 3, 1, 2, 5, 6],
+        [7, 9, 3, 1, 4, 8, 5, 6, 2],
+        [2, 1, 6, 7, 5, 3, 9, 8, 4],
+        [4, 8, 5, 6, 2, 9, 7, 3, 1],
+        [3, 4, 7, 9, 8, 2, 6, 1, 5],
+        [5, 2, 9, 3, 1, 6, 4, 7, 8],
+        [8, 6, 1, 5, 7, 4, 3, 2, 9]
+      ]
+    },
+    {
+      "puzzle": [
+        [1, null, 8, 4, null, 5, 9, 7, 3],
+        [5, null, null, 3, 1, 9, null, 8, 6],
+        [null, 4, 9, null, null, null, 2, null, 5],
+        [null, 3, 7, 9, null, null, 5, null, 2],
+        [9, null, 6, 2, 3, 7, 1, null, null],
+        [4, 2, null, null, null, 8, 3, 9, 7],
+        [6, null, null, null, 9, null, null, 2, 4],
+        [2, 1, 3, 7, 8, null, null, 5, 9],
+        [null, 9, 4, 6, null, 2, 8, 3, null]
+      ],
+      "solution": [
+        [1, 6, 8, 4, 2, 5, 9, 7, 3],
+        [5, 7, 2, 3, 1, 9, 4, 8, 6],
+        [3, 4, 9, 8, 7, 6, 2, 1, 5],
+        [8, 3, 7, 9, 4, 1, 5, 6, 2],
+        [9, 5, 6, 2, 3, 7, 1, 4, 8],
+        [4, 2, 1, 5, 6, 8, 3, 9, 7],
+        [6, 8, 5, 1, 9, 3, 7, 2, 4],
+        [2, 1, 3, 7, 8, 4, 6, 5, 9],
+        [7, 9, 4, 6, 5, 2, 8, 3, 1]
+      ]
+    },
+    {
+      "puzzle": [
+        [4, 1, 7, 9, null, 8, 2, null, null],
+        [null, 2, 5, 4, 1, null, 8, null, 9],
+        [null, 6, null, 2, 7, 3, 4, 5, null],
+        [5, null, 1, null, null, null, 9, 6, 8],
+        [7, null, null, null, 8, 1, 3, 4, 2],
+        [2, null, 4, 3, 6, null, 5, 1, null],
+        [6, 7, 2, null, 3, null, 1, null, null],
+        [null, null, null, null, 2, null, 6, 8, 4],
+        [1, 4, 8, 6, null, null, 7, 2, 3]
+      ],
+      "solution": [
+        [4, 1, 7, 9, 5, 8, 2, 3, 6],
+        [3, 2, 5, 4, 1, 6, 8, 7, 9],
+        [8, 6, 9, 2, 7, 3, 4, 5, 1],
+        [5, 3, 1, 7, 4, 2, 9, 6, 8],
+        [7, 9, 6, 5, 8, 1, 3, 4, 2],
+        [2, 8, 4, 3, 6, 9, 5, 1, 7],
+        [6, 7, 2, 8, 3, 4, 1, 9, 5],
+        [9, 5, 3, 1, 2, 7, 6, 8, 4],
+        [1, 4, 8, 6, 9, 5, 7, 2, 3]
+      ]
+    }
+  ],
+  "medium": [
+    {
+      "puzzle": [
+        [null, null, 3, null, null, 8, null, null, 6],
+        [null, 6, null, 7, null, 1, null, 2, null],
+        [2, 7, null, 3, null, 5, null, null, null],
+        [null, null, null, 4, 8, 7, null, null, null],
+        [8, null, 7, null, null, null, null, null, 4],
+        [null, null, 6, 2, 1, 9, 3, null, null],
+        [null, 2, null, null, 7, 4, 9, 3, 8],
+        [null, 3, 4, null, 9, 2, null, null, null],
+        [7, 8, null, null, null, null, null, 5, 2]
+      ],
+      "solution": [
+        [1, 4, 3, 9, 2, 8, 5, 7, 6],
+        [9, 6, 5, 7, 4, 1, 8, 2, 3],
+        [2, 7, 8, 3, 6, 5, 1, 4, 9],
+        [3, 9, 2, 4, 8, 7, 6, 1, 5],
+        [8, 1, 7, 6, 5, 3, 2, 9, 4],
+        [4, 5, 6, 2, 1, 9, 3, 8, 7],
+        [6, 2, 1, 5, 7, 4, 9, 3, 8],
+        [5, 3, 4, 8, 9, 2, 7, 6, 1],
+        [7, 8, 9, 1, 3, 6, 4, 5, 2]
+      ]
+    },
+    {
+      "puzzle": [
+        [null, null, 8, 3, null, 5, null, null, null],
+        [3, null, null, 9, null, 6, null, null, null],
+        [null, null, null, 2, 4, null, null, 6, 8],
+        [null, null, null, null, 7, 2, null, null, null],
+        [null, 7, 9, null, 6, 3, null, null, 5],
+        [null, 6, null, null, 9, null, 7, 2, null],
+        [null, 1, 2, null, 3, 4, 5, 9, null],
+        [null, null, 6, 8, 5, null, 2, null, 3],
+        [null, 3, 5, null, 2, null, null, 1, null]
+      ],
+      "solution": [
+        [6, 2, 8, 3, 1, 5, 9, 4, 7],
+        [3, 4, 7, 9, 8, 6, 1, 5, 2],
+        [9, 5, 1, 2, 4, 7, 3, 6, 8],
+        [1, 8, 4, 5, 7, 2, 6, 3, 9],
+        [2, 7, 9, 1, 6, 3, 4, 8, 5],
+        [5, 6, 3, 4, 9, 8, 7, 2, 1],
+        [8, 1, 2, 7, 3, 4, 5, 9, 6],
+        [4, 9, 6, 8, 5, 1, 2, 7, 3],
+        [7, 3, 5, 6, 2, 9, 8, 1, 4]
+      ]
+    },
+    {
+      "puzzle": [
+        [5, null, 1, null, 6, 9, 7, 3, 4],
+        [2, null, null, null, null, 7, null, null, null],
+        [null, 7, 9, 8, 5, null, null, null, 1],
+        [null, null, 2, 6, null, 1, null, 5, null],
+        [null, null, 7, null, 2, null, null, 8, 6],
+        [6, null, 5, null, null, null, null, 1, 9],
+        [null, null, null, null, 8, 2, 1, 4, null],
+        [3, null, null, null, null, null, null, null, 2],
+        [null, null, null, 5, null, 6, null, 7, 8]
+      ],
+      "solution": [
+        [5, 8, 1, 2, 6, 9, 7, 3, 4],
+        [2, 6, 3, 1, 4, 7, 8, 9, 5],
+        [4, 7, 9, 8, 5, 3, 6, 2, 1],
+        [8, 3, 2, 6, 9, 1, 4, 5, 7],
+        [9, 1, 7, 4, 2, 5, 3, 8, 6],
+        [6, 4, 5, 3, 7, 8, 2, 1, 9],
+        [7, 5, 6, 9, 8, 2, 1, 4, 3],
+        [3, 9, 8, 7, 1, 4, 5, 6, 2],
+        [1, 2, 4, 5, 3, 6, 9, 7, 8]
+      ]
+    },
+    {
+      "puzzle": [
+        [null, 3, null, 8, null, 4, null, null, 7],
+        [null, null, 6, null, 3, null, 5, 4, null],
+        [null, 4, 7, null, null, null, null, null, null],
+        [1, 5, 2, 6, null, null, 8, null, null],
+        [3, 6, null, null, null, 8, null, 1, 5],
+        [8, null, 9, null, 4, 1, 3, 2, null],
+        [7, 1, null, null, 8, null, null, null, null],
+        [null, null, 3, null, null, 6, 2, null, 8],
+        [null, null, 8, null, null, 9, null, 3, null]
+      ],
+      "solution": [
+        [5, 3, 1, 8, 2, 4, 6, 9, 7],
+        [9, 8, 6, 1, 3, 7, 5, 4, 2],
+        [2, 4, 7, 9, 6, 5, 1, 8, 3],
+        [1, 5, 2, 6, 9, 3, 8, 7, 4],
+        [3, 6, 4, 2, 7, 8, 9, 1, 5],
+        [8, 7, 9, 5, 4, 1, 3, 2, 6],
+        [7, 1, 5, 3, 8, 2, 4, 6, 9],
+        [4, 9, 3, 7, 1, 6, 2, 5, 8],
+        [6, 2, 8, 4, 5, 9, 7, 3, 1]
+      ]
+    },
+    {
+      "puzzle": [
+        [null, 1, null, null, null, null, 5, null, null],
+        [null, null, 8, null, null, 9, 1, 2, null],
+        [9, 4, 5, 8, 2, null, 7, null, 6],
+        [null, null, null, 1, null, null, 9, null, null],
+        [2, 7, 3, null, null, 4, null, 5, null],
+        [null, null, 9, 2, null, null, null, 4, 3],
+        [3, null, null, 5, null, null, null, 1, null],
+        [4, null, null, 3, 8, 7, 2, 6, 5],
+        [null, 8, null, null, null, null, 3, null, null]
+      ],
+      "solution": [
+        [7, 1, 2, 6, 4, 3, 5, 8, 9],
+        [6, 3, 8, 7, 5, 9, 1, 2, 4],
+        [9, 4, 5, 8, 2, 1, 7, 3, 6],
+        [8, 6, 4, 1, 3, 5, 9, 7, 2],
+        [2, 7, 3, 9, 6, 4, 8, 5, 1],
+        [1, 5, 9, 2, 7, 8, 6, 4, 3],
+        [3, 2, 7, 5, 9, 6, 4, 1, 8],
+        [4, 9, 1, 3, 8, 7, 2, 6, 5],
+        [5, 8, 6, 4, 1, 2, 3, 9, 7]
+      ]
+    },
+    {
+      "puzzle": [
+        [2, 4, null, 9, 8, null, null, null, 6],
+        [null, 1, 6, null, null, 2, 3, null, null],
+        [null, null, null, 6, null, 3, null, null, null],
+        [4, null, 1, 7, null, 8, null, null, null],
+        [null, 2, null, null, 6, null, 1, null, 5],
+        [null, 5, null, 2, 4, 1, null, null, null],
+        [9, null, 4, null, 2, null, 5, 6, 1],
+        [null, 7, null, null, 3, null, 8, null, null],
+        [null, 8, null, 1, 9, null, null, 3, null]
+      ],
+      "solution": [
+        [2, 4, 3, 9, 8, 5, 7, 1, 6],
+        [8, 1, 6, 4, 7, 2, 3, 5, 9],
+        [5, 9, 7, 6, 1, 3, 4, 8, 2],
+        [4, 6, 1, 7, 5, 8, 9, 2, 3],
+        [7, 2, 8, 3, 6, 9, 1, 4, 5],
+        [3, 5, 9, 2, 4, 1, 6, 7, 8],
+        [9, 3, 4, 8, 2, 7, 5, 6, 1],
+        [1, 7, 2, 5, 3, 6, 8, 9, 4],
+        [6, 8, 5, 1, 9, 4, 2, 3, 7]
+      ]
+    },
+    {
+      "puzzle": [
+        [5, null, null, null, null, null, 9, 4, null],
+        [null, 1, null, null, null, 9, 3, null, null],
+        [null, 9, null, null, null, null, 1, null, 2],
+        [7, null, 9, null, null, null, null, null, null],
+        [6, null, 1, null, null, 5, 2, 8, 9],
+        [8, null, 4, null, 9, null, null, null, null],
+        [9, null, 5, 8, null, null, 7, 2, 1],
+        [null, 8, 3, 9, null, 7, 4, 6, null],
+        [null, null, 7, 5, 4, null, null, 9, null]
+      ],
+      "solution": [
+        [5, 7, 2, 1, 3, 8, 9, 4, 6],
+        [4, 1, 6, 7, 2, 9, 3, 5, 8],
+        [3, 9, 8, 6, 5, 4, 1, 7, 2],
+        [7, 5, 9, 2, 8, 1, 6, 3, 4],
+        [6, 3, 1, 4, 7, 5, 2, 8, 9],
+        [8, 2, 4, 3, 9, 6, 5, 1, 7],
+        [9, 4, 5, 8, 6, 3, 7, 2, 1],
+        [2, 8, 3, 9, 1, 7, 4, 6, 5],
+        [1, 6, 7, 5, 4, 2, 8, 9, 3]
+      ]
+    },
+    {
+      "puzzle": [
+        [null, null, 1, 2, null, null, null, 8, 9],
+        [null, 2, null, null, null, 7, null, null, 5],
+        [5, null, 7, 3, 8, null, 4, null, null],
+        [null, null, 6, 9, 2, 4, null, null, 8],
+        [null, 5, null, null, null, 6, null, null, 2],
+        [2, null, null, null, null, 3, 6, null, 7],
+        [null, null, null, 7, null, null, null, 9, 4],
+        [null, null, 4, null, null, 9, null, 6, null],
+        [9, 1, null, null, 4, null, 8, 7, 3]
+      ],
+      "solution": [
+        [4, 3, 1, 2, 6, 5, 7, 8, 9],
+        [6, 2, 8, 4, 9, 7, 1, 3, 5],
+        [5, 9, 7, 3, 8, 1, 4, 2, 6],
+        [1, 7, 6, 9, 2, 4, 3, 5, 8],
+        [8, 5, 3, 1, 7, 6, 9, 4, 2],
+        [2, 4, 9, 8, 5, 3, 6, 1, 7],
+        [3, 6, 2, 7, 1, 8, 5, 9, 4],
+        [7, 8, 4, 5, 3, 9, 2, 6, 1],
+        [9, 1, 5, 6, 4, 2, 8, 7, 3]
+      ]
+    },
+    {
+      "puzzle": [
+        [8, 5, 3, null, null, 4, null, null, null],
+        [2, null, null, null, 8, null, null, null, null],
+        [null, 9, 7, 3, null, null, 6, 1, 8],
+        [null, null, 1, null, null, 5, null, 8, null],
+        [5, 6, 9, null, null, 1, null, null, 4],
+        [7, 8, null, 9, null, 3, 1, null, null],
+        [9, null, null, 1, null, null, null, null, null],
+        [6, null, 5, null, 9, 8, 2, 7, null],
+        [null, null, 4, null, null, null, 8, null, 9]
+      ],
+      "solution": [
+        [8, 5, 3, 6, 1, 4, 7, 9, 2],
+        [2, 1, 6, 7, 8, 9, 5, 4, 3],
+        [4, 9, 7, 3, 5, 2, 6, 1, 8],
+        [3, 4, 1, 2, 6, 5, 9, 8, 7],
+        [5, 6, 9, 8, 7, 1, 3, 2, 4],
+        [7, 8, 2, 9, 4, 3, 1, 6, 5],
+        [9, 2, 8, 1, 3, 7, 4, 6, 5],
+        [6, 3, 5, 4, 9, 8, 2, 7, 1],
+        [1, 7, 4, 5, 2, 6, 8, 3, 9]
+      ]
+    },
+    {
+      "puzzle": [
+        [null, null, null, null, 8, null, null, null, 5],
+        [3, 4, 7, 6, 1, null, 8, 2, null],
+        [5, 6, null, null, 9, null, null, null, null],
+        [2, 5, null, null, 7, null, null, 1, null],
+        [null, 3, null, 1, 6, null, null, null, null],
+        [null, 7, null, null, null, 4, 9, null, null],
+        [7, null, null, null, 4, null, 3, null, null],
+        [null, 2, 4, 8, null, null, 7, 5, null],
+        [null, null, 3, 7, 5, 1, 2, 8, null]
+      ],
+      "solution": [
+        [9, 1, 2, 3, 8, 7, 6, 4, 5],
+        [3, 4, 7, 6, 1, 5, 8, 2, 9],
+        [5, 6, 8, 4, 9, 2, 1, 3, 7],
+        [2, 5, 6, 9, 7, 3, 4, 1, 8],
+        [4, 3, 9, 1, 6, 8, 5, 7, 2],
+        [8, 7, 1, 5, 2, 4, 9, 6, 3],
+        [7, 8, 5, 2, 4, 6, 3, 9, 1],
+        [1, 2, 4, 8, 3, 9, 7, 5, 6],
+        [6, 9, 3, 7, 5, 1, 2, 8, 4]
+      ]
+    }
+  ],
+  "hard": [
+    {
+      "puzzle": [
+        [null, 5, 7, null, 8, 6, 2, null, null],
+        [1, 6, null, null, null, null, 7, null, null],
+        [3, null, null, null, null, 9, null, null, null],
+        [null, null, null, null, null, null, null, null, null],
+        [9, 4, null, null, 5, null, null, 7, null],
+        [8, null, null, null, null, null, null, 2, 6],
+        [null, 2, null, 7, 3, null, 6, 9, null],
+        [null, null, 4, null, null, null, null, null, null],
+        [6, null, 3, null, null, null, null, null, 7]
+      ],
+      "solution": [
+        [4, 5, 7, 3, 8, 6, 2, 1, 9],
+        [1, 6, 9, 5, 4, 2, 7, 8, 3],
+        [3, 8, 2, 1, 7, 9, 4, 6, 5],
+        [2, 3, 1, 6, 9, 7, 5, 4, 8],
+        [9, 4, 6, 2, 5, 8, 3, 7, 1],
+        [8, 7, 5, 4, 1, 3, 9, 2, 6],
+        [5, 2, 8, 7, 3, 1, 6, 9, 4],
+        [7, 1, 4, 9, 6, 5, 8, 3, 2],
+        [6, 9, 3, 8, 2, 4, 1, 5, 7]
+      ]
+    },
+    {
+      "puzzle": [
+        [2, null, 9, null, null, null, null, null, 5],
+        [4, null, 5, null, 6, 9, null, 7, 8],
+        [null, null, null, 5, 2, 3, null, 4, null],
+        [null, null, null, 2, null, 5, null, null, null],
+        [3, null, null, 9, null, null, null, null, null],
+        [null, null, null, null, null, 8, 4, 2, null],
+        [1, 6, null, null, null, null, null, null, null],
+        [null, null, 3, 4, null, null, null, null, null],
+        [null, 4, null, null, null, null, 3, null, null]
+      ],
+      "solution": [
+        [2, 1, 9, 8, 4, 7, 6, 3, 5],
+        [4, 3, 5, 1, 6, 9, 2, 7, 8],
+        [6, 8, 7, 5, 2, 3, 9, 4, 1],
+        [8, 9, 4, 2, 7, 5, 1, 6, 3],
+        [3, 2, 6, 9, 1, 4, 5, 8, 7],
+        [7, 5, 1, 6, 3, 8, 4, 2, 9],
+        [1, 6, 8, 3, 5, 2, 7, 9, 4],
+        [5, 7, 3, 4, 9, 6, 8, 1, 2],
+        [9, 4, 2, 7, 8, 1, 3, 5, 6]
+      ]
+    },
+    {
+      "puzzle": [
+        [null, null, 1, null, null, 5, null, 3, null],
+        [null, null, null, null, 3, 6, null, 9, null],
+        [null, 6, null, 1, 9, null, 4, 8, null],
+        [5, null, null, null, null, 4, null, null, null],
+        [null, null, null, 7, 6, 9, null, null, null],
+        [null, 7, null, null, null, 8, null, null, 3],
+        [8, null, 9, null, null, null, null, 6, null],
+        [3, null, null, null, null, null, 9, null, null],
+        [null, null, null, null, 8, 3, null, null, null]
+      ],
+      "solution": [
+        [4, 9, 1, 8, 2, 5, 7, 3, 6],
+        [7, 8, 5, 4, 3, 6, 2, 9, 1],
+        [2, 6, 3, 1, 9, 7, 4, 8, 5],
+        [5, 2, 6, 3, 1, 4, 8, 7, 9],
+        [1, 3, 8, 7, 6, 9, 5, 2, 4],
+        [9, 7, 4, 2, 5, 8, 6, 1, 3],
+        [8, 1, 9, 5, 4, 2, 3, 6, 7],
+        [3, 5, 2, 6, 7, 1, 9, 4, 8],
+        [6, 4, 7, 9, 8, 3, 1, 5, 2]
+      ]
+    },
+    {
+      "puzzle": [
+        [1, null, null, null, 4, null, null, 8, null],
+        [7, null, null, 5, 1, null, 3, null, null],
+        [null, null, 4, null, 8, null, null, null, null],
+        [null, 7, 8, 4, null, null, 2, null, null],
+        [null, 9, 3, null, 2, 1, 8, null, null],
+        [null, 1, null, 7, null, null, null, null, null],
+        [null, null, null, null, null, 5, null, 9, null],
+        [null, null, null, 9, 6, 2, null, null, null],
+        [null, null, null, null, null, null, null, 1, null]
+      ],
+      "solution": [
+        [1, 3, 5, 2, 4, 7, 9, 8, 6],
+        [7, 8, 9, 5, 1, 6, 3, 2, 4],
+        [6, 2, 4, 3, 8, 9, 1, 7, 5],
+        [5, 7, 8, 4, 9, 3, 2, 6, 1],
+        [4, 9, 3, 6, 2, 1, 8, 5, 7],
+        [2, 1, 6, 7, 5, 8, 4, 3, 9],
+        [3, 4, 2, 1, 7, 5, 6, 9, 8],
+        [8, 5, 1, 9, 6, 2, 7, 4, 3],
+        [9, 6, 7, 8, 3, 4, 5, 1, 2]
+      ]
+    },
+    {
+      "puzzle": [
+        [null, null, 3, null, null, null, null, null, null],
+        [1, null, null, null, null, null, null, 3, null],
+        [2, 9, null, null, 6, null, 8, 5, 1],
+        [null, 1, null, null, null, 6, 5, 4, null],
+        [null, null, null, null, null, null, null, 6, null],
+        [null, 5, 6, null, 4, null, null, null, 8],
+        [null, 3, null, 2, null, null, 6, null, null],
+        [null, 2, 9, null, 1, null, null, null, null],
+        [6, null, null, null, null, null, null, 8, null]
+      ],
+      "solution": [
+        [5, 6, 3, 8, 9, 1, 4, 2, 7],
+        [1, 4, 8, 5, 7, 2, 9, 3, 6],
+        [2, 9, 7, 4, 6, 3, 8, 5, 1],
+        [9, 1, 2, 7, 8, 6, 5, 4, 3],
+        [3, 8, 4, 1, 2, 5, 7, 6, 9],
+        [7, 5, 6, 3, 4, 9, 2, 1, 8],
+        [8, 3, 1, 2, 5, 7, 6, 9, 4],
+        [4, 2, 9, 6, 1, 8, 3, 7, 5],
+        [6, 7, 5, 9, 3, 4, 1, 8, 2]
+      ]
+    },
+    {
+      "puzzle": [
+        [null, null, 7, 4, null, null, null, null, 5],
+        [null, 5, 6, null, 1, 9, null, 4, null],
+        [4, null, null, null, 2, null, null, null, null],
+        [5, null, null, 6, null, null, null, null, 3],
+        [null, 1, null, 5, null, null, null, 8, null],
+        [null, null, 4, null, null, 2, null, 5, 1],
+        [null, null, null, 9, null, null, 1, 3, null],
+        [null, null, null, null, null, null, null, null, 7],
+        [null, null, null, null, 4, 7, null, null, null]
+      ],
+      "solution": [
+        [9, 8, 7, 4, 3, 6, 2, 1, 5],
+        [2, 5, 6, 7, 1, 9, 3, 4, 8],
+        [4, 3, 1, 8, 2, 5, 7, 6, 9],
+        [5, 2, 8, 6, 9, 1, 4, 7, 3],
+        [3, 1, 9, 5, 7, 4, 6, 8, 2],
+        [6, 7, 4, 3, 8, 2, 9, 5, 1],
+        [7, 6, 2, 9, 5, 8, 1, 3, 4],
+        [1, 4, 5, 2, 6, 3, 8, 9, 7],
+        [8, 9, 3, 1, 4, 7, 5, 2, 6]
+      ]
+    },
+    {
+      "puzzle": [
+        [7, 1, null, null, null, 8, null, null, null],
+        [null, null, null, null, 1, 9, null, null, null],
+        [null, null, null, null, 6, null, null, null, null],
+        [null, null, null, null, null, null, null, null, null],
+        [4, null, null, 1, null, null, 3, null, null],
+        [9, 3, null, null, null, 2, 4, null, null],
+        [3, 6, null, null, null, null, 7, null, null],
+        [8, null, null, null, null, 5, 1, 2, 3],
+        [null, 5, 1, null, 7, null, 8, 4, null]
+      ],
+      "solution": [
+        [7, 1, 9, 5, 2, 8, 6, 3, 4],
+        [6, 4, 8, 3, 1, 9, 2, 5, 7],
+        [5, 2, 3, 4, 6, 7, 9, 1, 8],
+        [1, 7, 2, 8, 3, 4, 5, 6, 9],
+        [4, 8, 5, 1, 9, 6, 3, 7, 2],
+        [9, 3, 6, 7, 5, 2, 4, 8, 1],
+        [3, 6, 4, 2, 8, 1, 7, 9, 5],
+        [8, 9, 7, 6, 4, 5, 1, 2, 3],
+        [2, 5, 1, 9, 7, 3, 8, 4, 6]
+      ]
+    },
+    {
+      "puzzle": [
+        [null, null, null, 2, null, null, 8, null, null],
+        [9, null, null, null, null, 6, null, null, null],
+        [8, null, null, null, null, null, 1, 4, null],
+        [5, null, 8, null, 4, 2, null, null, null],
+        [1, null, null, 6, null, null, 5, null, null],
+        [null, 7, 6, null, null, null, null, 1, null],
+        [3, null, null, null, null, null, 7, 2, 5],
+        [7, null, null, null, null, null, null, null, 1],
+        [null, 5, null, 7, null, null, 4, null, null]
+      ],
+      "solution": [
+        [4, 6, 7, 2, 1, 3, 8, 5, 9],
+        [9, 1, 5, 4, 8, 6, 2, 7, 3],
+        [8, 2, 3, 9, 7, 5, 1, 4, 6],
+        [5, 3, 8, 1, 4, 2, 9, 6, 7],
+        [1, 4, 9, 6, 3, 7, 5, 8, 2],
+        [2, 7, 6, 5, 9, 8, 3, 1, 4],
+        [3, 9, 4, 8, 6, 1, 7, 2, 5],
+        [7, 8, 2, 3, 5, 4, 6, 9, 1],
+        [6, 5, 1, 7, 2, 9, 4, 3, 8]
+      ]
+    },
+    {
+      "puzzle": [
+        [null, 1, 5, 4, null, null, null, null, null],
+        [2, null, 4, 7, 3, null, null, null, null],
+        [3, null, null, 1, null, 5, 7, 9, null],
+        [null, 8, 7, null, null, 3, null, 6, 9],
+        [null, 2, 3, null, null, null, 1, null, null],
+        [null, 5, null, null, 6, null, null, null, null],
+        [8, null, 2, null, null, null, null, null, null],
+        [5, null, null, null, null, null, null, null, null],
+        [null, null, null, null, null, null, null, null, 2]
+      ],
+      "solution": [
+        [7, 1, 5, 4, 9, 8, 3, 2, 6],
+        [2, 9, 4, 7, 3, 6, 8, 1, 5],
+        [3, 6, 8, 1, 2, 5, 7, 9, 4],
+        [4, 8, 7, 5, 1, 3, 2, 6, 9],
+        [6, 2, 3, 8, 4, 9, 1, 5, 7],
+        [1, 5, 9, 2, 6, 7, 4, 8, 3],
+        [8, 7, 2, 6, 5, 4, 9, 3, 1],
+        [5, 3, 1, 9, 7, 2, 6, 4, 8],
+        [9, 4, 6, 3, 8, 1, 5, 7, 2]
+      ]
+    },
+    {
+      "puzzle": [
+        [null, 2, null, null, 6, 5, null, null, null],
+        [null, null, null, 2, null, null, 6, null, 1],
+        [6, null, null, null, null, null, null, null, null],
+        [null, null, 1, null, null, null, 8, null, 6],
+        [8, 5, 4, null, 7, null, 2, 1, 9],
+        [3, null, null, 9, null, null, null, 4, null],
+        [null, null, null, null, 2, 3, null, null, null],
+        [null, null, 3, 7, null, 9, null, null, null],
+        [null, 8, null, null, null, null, null, null, null]
+      ],
+      "solution": [
+        [1, 2, 8, 4, 6, 5, 3, 9, 7],
+        [4, 3, 5, 2, 9, 7, 6, 8, 1],
+        [6, 7, 9, 1, 3, 8, 4, 5, 2],
+        [7, 9, 1, 5, 4, 2, 8, 3, 6],
+        [8, 5, 4, 3, 7, 6, 2, 1, 9],
+        [3, 6, 2, 9, 8, 1, 7, 4, 5],
+        [9, 1, 6, 8, 2, 3, 5, 7, 4],
+        [2, 4, 3, 7, 5, 9, 1, 6, 8],
+        [5, 8, 7, 6, 1, 4, 9, 2, 3]
+      ]
+    }
+  ]
+}
+// --- PASTED JSON DATA ENDS HERE ---
+
+const boardEl = document.getElementById('sudokuBoard');
+const timerEl = document.getElementById('timer');
+const messageEl = document.getElementById('message');
+const difficultySlider = document.getElementById('difficulty');
+const difficultyLabel = document.getElementById('difficultyLabel');
+
+let timerInterval, seconds = 0;
+let solution = [];
+let userBoard = [];
+let originalPuzzle = [];
+
+const easySelect = document.getElementById('easyPreset');
+const mediumSelect = document.getElementById('mediumPreset');
+const hardSelect = document.getElementById('hardPreset');
+
+function pad(n) { return n < 10 ? '0'+n : n; }
+
+function startTimer() {
+  clearInterval(timerInterval);
+  seconds = 0;
+  timerEl.textContent = "Time: 00:00"; // Reset visually immediately
+  timerInterval = setInterval(() => {
+    seconds++;
+    timerEl.textContent = `Time: ${pad(Math.floor(seconds/60))}:${pad(seconds%60)}`;
+  }, 1000);
+}
+function stopTimer() { clearInterval(timerInterval); }
+
+function getDifficultyLevel() {
+   const val = parseInt(difficultySlider.value);
+   if (val <= 40) return "easy";
+   else if (val <= 70) return "medium";
+   else return "hard";
+ }
+
+difficultySlider.addEventListener('input', () => {
+  const level = getDifficultyLevel();
+  difficultyLabel.textContent = level.charAt(0).toUpperCase() + level.slice(1);
+});
+
+function generateFullBoard() {
+  const board = Array.from({length:9}, ()=>Array(9).fill(null));
+  function isSafe(r,c,num) {
+    for(let i=0;i<9;i++){
+      if(board[r][i]===num||board[i][c]===num) return false;
+    }
+    const br=r-r%3, bc=c-c%3;
+    for(let rr=br; rr<br+3; rr++){
+      for(let cc=bc; cc<bc+3; cc++){
+        if(board[rr][cc]===num) return false;
+      }
+    }
+    return true;
+  }
+  function fill(r=0,c=0) {
+    if(r===9) return true;
+    const [nr,nc] = c===8 ? [r+1,0] : [r,c+1];
+    let nums=[1,2,3,4,5,6,7,8,9].sort(()=>Math.random()-0.5);
+    for(let n of nums){
+      if(isSafe(r,c,n)){
+        board[r][c]=n;
+        if(fill(nr,nc)) return true;
+        board[r][c]=null;
+      }
+    }
+    return false;
+  }
+  fill();
+  return board;
+}
+
+function makePuzzle(fullBoard, emptyCount) {
+  let puzzle = JSON.parse(JSON.stringify(fullBoard));
+  let removed = 0;
+  while(removed < emptyCount) {
+    let r=Math.floor(Math.random()*9);
+    let c=Math.floor(Math.random()*9);
+    if(puzzle[r][c] !== null) {
+      puzzle[r][c] = null;
+      removed++;
+    }
+  }
+  return puzzle;
+}
+
+function populatePresetDropdowns() {
+  function fill(sel) {
+    sel.innerHTML = '<option value="">--</option>';
+    for (let i = 0; i < 10; i++) {
+      let opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = (i+1).toString();
+      sel.appendChild(opt);
+    }
+  }
+  fill(easySelect);
+  fill(mediumSelect);
+  fill(hardSelect);
+}
+
+function selectPreset(level, selElem) {
+  const idx = selElem.value;
+  if (idx === "") return;
+  const { puzzle, solution: sol } = presets[level][idx];
+  // Important: Deep copy to prevent mutating the original preset
+  window.solution = JSON.parse(JSON.stringify(sol));
+  renderBoard(puzzle);
+  startTimer();
+  messageEl.textContent = '';
+  originalPuzzle = JSON.parse(JSON.stringify(puzzle));
+  selElem.value = "";
+}
+
+function renderBoard(puzzle) {
+  boardEl.innerHTML = '';
+  userBoard = JSON.parse(JSON.stringify(puzzle));
+  for(let r=0;r<9;r++){
+    for(let c=0;c<9;c++){
+      const cell = document.createElement('input');
+      
+      // 4. CRITICAL: Use numeric keyboard on Mobile
+      cell.setAttribute('type', 'tel'); // Works best on most devices
+      cell.setAttribute('inputmode', 'numeric'); // Suggests numeric pad
+      cell.setAttribute('pattern', '[0-9]*'); // iOS fallback
+      
+      cell.maxLength = 1;
+      cell.classList.add('cell');
+      cell.dataset.row = r;
+      cell.dataset.col = c;
+
+      if(r%3===0) cell.classList.add('border-top');
+      if(c%3===0) cell.classList.add('border-left');
+      if(r===8) cell.classList.add('border-bottom');
+      if(c===8) cell.classList.add('border-right');
+
+      cell.addEventListener('focus', (e) => {
+        e.target.select(); // Auto-select text on focus for easier overwriting
+        highlightRowCol(r,c);
+      });
+
+      if(puzzle[r][c] !== null){
+        cell.value = puzzle[r][c];
+        cell.disabled = true;
+        cell.classList.add('fixed');
+      } else {
+        cell.addEventListener('input', () => {
+          let val = parseInt(cell.value);
+          if(isNaN(val)||val<1||val>9){
+            cell.value=''; userBoard[r][c]=null;
+            cell.classList.remove('invalid');
+            return;
+          }
+          userBoard[r][c] = val;
+          // Only mark invalid if we actually have a solution loaded
+          if(solution && solution.length) {
+             cell.classList.toggle('invalid', val !== solution[r][c]);
+             checkWin();
+          }
+        });
+      }
+      boardEl.appendChild(cell);
+    }
+  }
+}
+
+function highlightRowCol(row,col) {
+  document.querySelectorAll('.cell').forEach(c=>c.classList.remove('highlighted'));
+  document.querySelectorAll(`.cell[data-row="${row}"]`).forEach(c=>c.classList.add('highlighted'));
+  document.querySelectorAll(`.cell[data-col="${col}"]`).forEach(c=>c.classList.add('highlighted'));
+}
+
+function resetBoard(){
+  if(originalPuzzle.length === 0) return;
+  userBoard = JSON.parse(JSON.stringify(originalPuzzle));
+  renderBoard(originalPuzzle);
+  messageEl.textContent = '';
+  startTimer();
+}
+
+function newGame(){
+  const val = parseInt(difficultySlider.value);
+  const emptyCount = val<=40?30:(val<=70?45:55);
+  const full = generateFullBoard();
+  solution = JSON.parse(JSON.stringify(full));
+  const puzzle = makePuzzle(full, emptyCount);
+  originalPuzzle = JSON.parse(JSON.stringify(puzzle));
+  renderBoard(puzzle);
+  messageEl.textContent=''; 
+  startTimer();
+}
+
+function checkWin(){
+  for(let r=0;r<9;r++){
+    for(let c=0;c<9;c++){
+      if(userBoard[r][c] !== solution[r][c]) return;
+    }
+  }
+  stopTimer(); messageEl.textContent = '🎉 You Win!';
+}
+
+// Initialize
+populatePresetDropdowns();
+difficultySlider.dispatchEvent(new Event('input'));
+newGame();
+
+</script>
+</body>
+</html>
