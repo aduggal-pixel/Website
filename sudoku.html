@@ -45,6 +45,20 @@
     justify-content: center;
   }
   .preset-group { text-align: center; }
+
+  .preset-box {
+  border: 3px solid #ccc;
+  padding: 0.5em;
+  max-width: 600px;
+  margin-top: 0.5em;
+  text-align: center;
+  }
+
+.preset-box legend {
+  font-weight: bold;
+  font-size: 1.1em;
+  padding: 0 0.5em;
+  }
 </style>
 </head>
 <body>
@@ -62,27 +76,30 @@
   <div id="timer">Time: 00:00</div>
   <div class="board" id="sudokuBoard"></div>
   <div id="message"></div>
-
-  <div class="preset-section">
-    <div class="preset-group">
-      <strong>Easy</strong><br />
-      <select id="easyPreset" onchange="selectPreset('easy', this)">
-        <option value="">--</option>
-      </select>
+  
+  <fieldset class="preset-box">
+    <legend>Preset Games</legend>
+    <div class="preset-section">
+        <div class="preset-group">
+        <strong>Easy</strong><br />
+        <select id="easyPreset" onchange="selectPreset('easy', this)">
+            <option value="">--</option>
+        </select>
+        </div>
+        <div class="preset-group">
+        <strong>Medium</strong><br />
+        <select id="mediumPreset" onchange="selectPreset('medium', this)">
+            <option value="">--</option>
+        </select>
+        </div>
+        <div class="preset-group">
+        <strong>Hard</strong><br />
+        <select id="hardPreset" onchange="selectPreset('hard', this)">
+            <option value="">--</option>
+        </select>
+        </div>
     </div>
-    <div class="preset-group">
-      <strong>Medium</strong><br />
-      <select id="mediumPreset" onchange="selectPreset('medium', this)">
-        <option value="">--</option>
-      </select>
-    </div>
-    <div class="preset-group">
-      <strong>Hard</strong><br />
-      <select id="hardPreset" onchange="selectPreset('hard', this)">
-        <option value="">--</option>
-      </select>
-    </div>
-  </div>
+  </fieldset>
 
 <script>
 const boardEl = document.getElementById('sudokuBoard');
