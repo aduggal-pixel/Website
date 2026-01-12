@@ -34,7 +34,23 @@
   .cell.fixed { background: #e0e0e0; font-weight: bold; }
   .cell.invalid { color: red; }
   .highlighted { background: #dbefff !important; }
-  button { margin: 0 5px; }
+  
+  button {
+    font-size: 1em;
+    padding: 0.4em 1em;
+    margin: 0 5px;
+    cursor: pointer;
+    border: none;
+    background-color: #5282b5;
+    color: white;
+    border-radius: 4px;
+    transition: background-color 0.3s ease;
+  }
+
+  button:hover {
+    background-color: #355a79;
+  }
+
   select {
     padding: 4px; font-size: 16px;
     width: 80px; /* narrower dropdown */
