@@ -117,9 +117,14 @@
   .sidebar {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
     width: 160px;             /* narrower, more compact moves panel */
+    /* push the panel down so the first button lines up with the board's top
+       edge (the captured/clock row sits above the board and is 38px tall) */
+    margin-top: 38px;
   }
+  .sidebar button { width: 100%; }            /* stacked, equal-size buttons */
+  .sidebar select { width: 100%; margin-top: 4px; }
 
   /* Small clocks tucked beside the board */
   .clock {
@@ -133,8 +138,6 @@
     text-align: center;
   }
   .clock.active { background: #fff7cc; border-color: #d4b106; font-weight: bold; }
-
-  .controls { display: flex; flex-wrap: wrap; gap: 6px; }
 
   /* Green buttons with bold white text */
   button {
@@ -205,7 +208,7 @@
       flex-direction: column;
       align-items: center;
     }
-    .sidebar { width: calc(var(--sq) * 8); }
+    .sidebar { width: calc(var(--sq) * 8); margin-top: 12px; }
   }
 </style>
 </head>
@@ -218,35 +221,31 @@
 
     <div class="board-area">
       <div class="board-row">
-        <div class="captured" id="capturedByBlack"></div>
-        <div class="clock" id="clockBlack">—</div>
+        <div class="captured" id="capturedTop"></div>
+        <div class="clock" id="clockTop">—</div>
       </div>
       <div class="board" id="board"></div>
       <div class="board-row">
-        <div class="captured" id="capturedByWhite"></div>
-        <div class="clock" id="clockWhite">—</div>
+        <div class="captured" id="capturedBottom"></div>
+        <div class="clock" id="clockBottom">—</div>
       </div>
     </div>
 
     <div class="sidebar-col">
       <div class="sidebar">
-        <div class="controls">
-          <button onclick="newGame()">New Game</button>
-          <button onclick="undo()">Undo</button>
-          <button onclick="flip()">Flip</button>
-        </div>
-        <div class="controls">
-          <label>Clock:
-            <select onchange="setTimeControl(this.value)">
-              <option value="0">No clock</option>
-              <option value="5">5 min</option>
-              <option value="10">10 min</option>
-              <option value="15">15 min</option>
-              <option value="30">30 min</option>
-              <option value="60">60 min</option>
-            </select>
-          </label>
-        </div>
+        <button onclick="newGame()">New Game</button>
+        <button onclick="undo()">Undo</button>
+        <button onclick="flip()">Flip</button>
+        <label>Clock:
+          <select onchange="setTimeControl(this.value)">
+            <option value="0">No clock</option>
+            <option value="5">5 min</option>
+            <option value="10">10 min</option>
+            <option value="15">15 min</option>
+            <option value="30">30 min</option>
+            <option value="60">60 min</option>
+          </select>
+        </label>
         <div id="history"></div>
       </div>
     </div>
@@ -336,11 +335,21 @@
       }
     }
 
+    // The side at the bottom of the board depends on orientation, so the clock
+    // and captured pieces for each colour follow the board when it is flipped.
+    function topColor()    { return orientation === "white" ? "b" : "w"; }
+    function bottomColor() { return orientation === "white" ? "w" : "b"; }
+
+    // Pieces captured BY a colour are that colour's opponent's pieces.
+    function capturedBy(color) {
+      const taken = color === "w" ? capturedByWhite : capturedByBlack;
+      const oppColour = color === "w" ? "b" : "w";
+      return taken.map((t) => PIECES[oppColour][t]).join("");
+    }
+
     function renderCaptured() {
-      document.getElementById("capturedByWhite").textContent =
-        capturedByWhite.map((t) => PIECES.b[t]).join("");
-      document.getElementById("capturedByBlack").textContent =
-        capturedByBlack.map((t) => PIECES.w[t]).join("");
+      document.getElementById("capturedTop").textContent = capturedBy(topColor());
+      document.getElementById("capturedBottom").textContent = capturedBy(bottomColor());
     }
 
     function renderHistory() {
@@ -364,17 +373,15 @@
     }
 
     function renderClocks() {
-      const w = document.getElementById("clockWhite");
-      const b = document.getElementById("clockBlack");
-      if (timeControl === 0) {
-        w.textContent = "—";
-        b.textContent = "—";
-      } else {
-        w.textContent = fmt(times.w);
-        b.textContent = fmt(times.b);
-      }
-      w.classList.toggle("active", !gameOver && timeControl > 0 && game.turn() === "w");
-      b.classList.toggle("active", !gameOver && timeControl > 0 && game.turn() === "b");
+      const show = timeControl > 0;          // hide the boxes entirely if no clock
+      setClock(document.getElementById("clockTop"), topColor(), show);
+      setClock(document.getElementById("clockBottom"), bottomColor(), show);
+    }
+
+    function setClock(el, color, show) {
+      el.style.display = show ? "" : "none";
+      el.textContent = show ? fmt(times[color]) : "—";
+      el.classList.toggle("active", !gameOver && show && game.turn() === color);
     }
 
     // updateInfo() refreshes everything that isn't the board grid itself,
@@ -520,6 +527,8 @@
     function flip() {
       orientation = orientation === "white" ? "black" : "white";
       render();
+      renderClocks();
+      renderCaptured();
     }
 
     function newGame() {
