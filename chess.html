@@ -292,9 +292,13 @@
     const boardEl = document.getElementById("board");
 
     // Map each piece (colour + type) to its Unicode chess symbol.
+    // The trailing ︎ is a "text presentation selector": it forces these
+    // glyphs to render as plain text, stopping iOS from showing the black pawn
+    // (♟) as a larger, mismatched emoji.
+    const VS = "︎";
     const PIECES = {
-      w: { k: "♔", q: "♕", r: "♖", b: "♗", n: "♘", p: "♙" },
-      b: { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" },
+      w: { k: "♔"+VS, q: "♕"+VS, r: "♖"+VS, b: "♗"+VS, n: "♘"+VS, p: "♙"+VS },
+      b: { k: "♚"+VS, q: "♛"+VS, r: "♜"+VS, b: "♝"+VS, n: "♞"+VS, p: "♟"+VS },
     };
 
     const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
