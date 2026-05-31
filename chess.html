@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Chess — Local Two Player</title>
+<style>
+  :root {
+    --sq: 60px;            /* size of one board square */
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #f0f0f0;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 { margin: 10px 0; }
+
+  #status {
+    font-weight: bold;
+    font-size: 1.2rem;
+    margin-bottom: 12px;
+    min-height: 1.4em;
+    text-align: center;
+  }
+
+  .container {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .board-area { display: flex; flex-direction: column; align-items: center; }
+
+  /* The captured-pieces trays that sit above and below the board */
+  .captured {
+    min-height: 34px;
+    font-size: 28px;
+    line-height: 34px;
+    width: calc(var(--sq) * 8);
+    letter-spacing: 2px;
+    color: #333;
+  }
+  .captured-label { font-size: 0.75rem; color: #777; font-weight: bold; }
+
+  /* The board itself is an 8x8 CSS grid */
+  .board {
+    display: grid;
+    grid-template-columns: repeat(8, var(--sq));
+    grid-template-rows: repeat(8, var(--sq));
+    border: 3px solid #444;
+    /* default colour theme (overridden by .theme-* classes) */
+    --light: #f0d9b5;
+    --dark: #b58863;
+  }
+  .board.theme-green { --light: #eeeed2; --dark: #769656; }
+  .board.theme-blue  { --light: #dee3e6; --dark: #8ca2ad; }
+
+  .square {
+    width: var(--sq);
+    height: var(--sq);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    cursor: pointer;
+    user-select: none;
+  }
+  .square.light { background: var(--light); }
+  .square.dark  { background: var(--dark); }
+
+  .piece {
+    font-size: calc(var(--sq) * 0.72);
+    line-height: 1;
+  }
+
+  /* Highlights */
+  .square.selected  { box-shadow: inset 0 0 0 4px #f6e05e; }
+  .square.last-move { background: #cdd26a; }
+  .square.last-move.dark { background: #aaa23b; }
+
+  /* A small dot marking a legal destination */
+  .square.target::after {
+    content: "";
+    position: absolute;
+    width: 28%;
+    height: 28%;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.3);
+  }
+  /* If the target square holds an enemy piece, show a ring instead of a dot */
+  .square.target:has(.piece)::after {
+    width: 88%;
+    height: 88%;
+    background: transparent;
+    border: 5px solid rgba(0, 0, 0, 0.3);
+    box-sizing: border-box;
+  }
+
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 240px;
+  }
+
+  .clock {
+    font-size: 1.4rem;
+    font-variant-numeric: tabular-nums;
+    padding: 6px 10px;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    text-align: center;
+  }
+  .clock.active { background: #fff7cc; border-color: #d4b106; font-weight: bold; }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 6px; }
+  button, select {
+    padding: 8px 10px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    border: 1px solid #aaa;
+    border-radius: 6px;
+    background: #fff;
+  }
+  button:hover { background: #eef; }
+
+  #history {
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 8px;
+    height: 220px;
+    overflow-y: auto;
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+  #history .movenum { color: #999; display: inline-block; width: 24px; }
+
+  /* Pawn-promotion chooser overlay */
+  #promotion {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    align-items: center;
+    justify-content: center;
+  }
+  #promotion .choices {
+    background: #fff;
+    padding: 16px;
+    border-radius: 10px;
+    display: flex;
+    gap: 8px;
+  }
+  #promotion button { font-size: 2.4rem; padding: 6px 10px; }
+</style>
+</head>
+<body>
+  <h1>Chess</h1>
+  <div id="status">White to move</div>
+
+  <div class="container">
+    <div class="board-area">
+      <div class="captured-label">Captured by Black</div>
+      <div class="captured" id="capturedByBlack"></div>
+      <div class="board theme-classic" id="board"></div>
+      <div class="captured" id="capturedByWhite"></div>
+      <div class="captured-label">Captured by White</div>
+    </div>
+
+    <div class="sidebar">
+      <div class="clock" id="clockBlack">—</div>
+      <div class="controls">
+        <button onclick="newGame()">New Game</button>
+        <button onclick="undo()">Undo</button>
+        <button onclick="flip()">Flip</button>
+      </div>
+      <div class="controls">
+        <label>Theme:
+          <select onchange="setTheme(this.value)">
+            <option value="classic">Classic</option>
+            <option value="green">Green</option>
+            <option value="blue">Blue</option>
+          </select>
+        </label>
+      </div>
+      <div class="controls">
+        <label>Clock:
+          <select onchange="setTimeControl(this.value)">
+            <option value="0">No clock</option>
+            <option value="5">5 min</option>
+            <option value="10">10 min</option>
+            <option value="15">15 min</option>
+          </select>
+        </label>
+      </div>
+      <div id="history"></div>
+      <div class="clock" id="clockWhite">—</div>
+    </div>
+  </div>
+
+  <!-- Pawn promotion chooser, hidden until needed -->
+  <div id="promotion">
+    <div class="choices">
+      <button data-type="q" onclick="choosePromotion('q')"></button>
+      <button data-type="r" onclick="choosePromotion('r')"></button>
+      <button data-type="b" onclick="choosePromotion('b')"></button>
+      <button data-type="n" onclick="choosePromotion('n')"></button>
+    </div>
+  </div>
+
+  <!-- chess.js: the library that knows all the rules of chess for us -->
+  <script src="https://cdn.jsdelivr.net/npm/chess.js@0.10.3/chess.js"></script>
+  <script>
+    // ----- Game state -------------------------------------------------------
+    // `game` is the "brain": it tracks the position and enforces the rules.
+    let game = new Chess();
+
+    let orientation = "white";   // which colour sits at the bottom
+    let selectedSquare = null;   // the square the player has clicked, e.g. "e2"
+    let legalTargets = [];       // squares the selected piece may move to
+    let lastMove = null;         // {from, to} of the most recent move (for highlight)
+    let gameOver = false;
+
+    // Captured pieces. capturedByWhite = black pieces White has taken, etc.
+    let capturedByWhite = [];
+    let capturedByBlack = [];
+
+    // Clock state
+    let timeControl = 0;             // minutes per side; 0 means no clock
+    let times = { w: 0, b: 0 };      // seconds remaining
+    let ticker = null;               // the running setInterval, if any
+
+    let pendingPromotion = null;     // holds a move while we ask which piece
+
+    const boardEl = document.getElementById("board");
+
+    // Map each piece (colour + type) to its Unicode chess symbol.
+    const PIECES = {
+      w: { k: "♔", q: "♕", r: "♖", b: "♗", n: "♘", p: "♙" },
+      b: { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" },
+    };
+
+    const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
+
+    // ----- Rendering --------------------------------------------------------
+    // render() rebuilds the visible board from the current game state.
+    function render() {
+      boardEl.innerHTML = "";
+
+      // Decide the order of ranks/files based on which way the board faces.
+      const ranks = orientation === "white" ? [8, 7, 6, 5, 4, 3, 2, 1] : [1, 2, 3, 4, 5, 6, 7, 8];
+      const files = orientation === "white" ? FILES : [...FILES].reverse();
+
+      for (const rank of ranks) {
+        for (let f = 0; f < files.length; f++) {
+          const file = files[f];
+          const square = file + rank;
+          const fileIndex = FILES.indexOf(file);
+
+          const el = document.createElement("div");
+          // a1 is a dark square; light when (file index + rank) is even.
+          const isLight = (fileIndex + rank) % 2 === 0;
+          el.className = "square " + (isLight ? "light" : "dark");
+          el.dataset.square = square;
+
+          if (lastMove && (square === lastMove.from || square === lastMove.to)) {
+            el.classList.add("last-move");
+          }
+          if (square === selectedSquare) el.classList.add("selected");
+          if (legalTargets.includes(square)) el.classList.add("target");
+
+          const piece = game.get(square);
+          if (piece) {
+            const span = document.createElement("span");
+            span.className = "piece";
+            span.textContent = PIECES[piece.color][piece.type];
+            span.draggable = true;
+            el.appendChild(span);
+          }
+          boardEl.appendChild(el);
+        }
+      }
+    }
+
+    function renderCaptured() {
+      document.getElementById("capturedByWhite").textContent =
+        capturedByWhite.map((t) => PIECES.b[t]).join("");
+      document.getElementById("capturedByBlack").textContent =
+        capturedByBlack.map((t) => PIECES.w[t]).join("");
+    }
+
+    function renderHistory() {
+      const h = game.history();
+      let html = "";
+      for (let i = 0; i < h.length; i += 2) {
+        const num = i / 2 + 1;
+        const white = h[i] || "";
+        const black = h[i + 1] || "";
+        html += `<div><span class="movenum">${num}.</span> ${white} ${black}</div>`;
+      }
+      const el = document.getElementById("history");
+      el.innerHTML = html;
+      el.scrollTop = el.scrollHeight;
+    }
+
+    function fmt(seconds) {
+      const m = Math.floor(seconds / 60);
+      const s = String(seconds % 60).padStart(2, "0");
+      return `${m}:${s}`;
+    }
+
+    function renderClocks() {
+      const w = document.getElementById("clockWhite");
+      const b = document.getElementById("clockBlack");
+      if (timeControl === 0) {
+        w.textContent = "—";
+        b.textContent = "—";
+      } else {
+        w.textContent = fmt(times.w);
+        b.textContent = fmt(times.b);
+      }
+      w.classList.toggle("active", !gameOver && timeControl > 0 && game.turn() === "w");
+      b.classList.toggle("active", !gameOver && timeControl > 0 && game.turn() === "b");
+    }
+
+    // updateInfo() refreshes everything that isn't the board grid itself,
+    // and works out the current status message (check / checkmate / etc.).
+    function updateInfo() {
+      renderCaptured();
+      renderHistory();
+      renderClocks();
+
+      let status;
+      const mover = game.turn() === "w" ? "White" : "Black";
+      const other = game.turn() === "w" ? "Black" : "White";
+
+      if (game.in_checkmate()) {
+        status = `Checkmate — ${other} wins!`;
+        endGame();
+      } else if (game.in_stalemate()) {
+        status = "Stalemate — draw.";
+        endGame();
+      } else if (game.in_threefold_repetition()) {
+        status = "Draw by threefold repetition.";
+        endGame();
+      } else if (game.insufficient_material()) {
+        status = "Draw — insufficient material.";
+        endGame();
+      } else if (game.in_draw()) {
+        status = "Draw.";
+        endGame();
+      } else if (game.in_check()) {
+        status = `${mover} to move — Check!`;
+      } else {
+        status = `${mover} to move`;
+      }
+      document.getElementById("status").textContent = status;
+    }
+
+    // ----- Making moves -----------------------------------------------------
+    function selectSquare(square) {
+      selectedSquare = square;
+      // Ask the library for every legal move from this square.
+      legalTargets = game.moves({ square: square, verbose: true }).map((m) => m.to);
+      render();
+    }
+
+    function clearSelection() {
+      selectedSquare = null;
+      legalTargets = [];
+    }
+
+    function onSquareClick(square) {
+      if (gameOver) return;
+      const piece = game.get(square);
+
+      if (selectedSquare) {
+        if (legalTargets.includes(square)) {
+          tryMove(selectedSquare, square);
+          return;
+        }
+        // Clicked somewhere that isn't a legal target:
+        if (piece && piece.color === game.turn()) {
+          selectSquare(square);          // switch selection to that piece
+        } else {
+          clearSelection();
+          render();
+        }
+      } else if (piece && piece.color === game.turn()) {
+        selectSquare(square);
+      }
+    }
+
+    // tryMove checks whether the move needs a promotion choice first.
+    function tryMove(from, to) {
+      const candidate = game
+        .moves({ square: from, verbose: true })
+        .find((m) => m.to === to);
+      if (!candidate) return;
+
+      if (candidate.flags.includes("p")) {
+        // It's a pawn reaching the last rank — ask which piece to become.
+        pendingPromotion = { from, to };
+        showPromotion(game.turn());
+        return;
+      }
+      doMove({ from, to });
+    }
+
+    function doMove(move) {
+      const result = game.move({
+        from: move.from,
+        to: move.to,
+        promotion: move.promotion || "q",
+      });
+      if (!result) return; // illegal; ignore
+
+      // Record a capture, if any, into the right tray.
+      if (result.captured) {
+        if (result.color === "w") capturedByWhite.push(result.captured);
+        else capturedByBlack.push(result.captured);
+      }
+
+      lastMove = { from: result.from, to: result.to };
+      clearSelection();
+      ensureTicker(); // start the clock on the first move
+      render();
+      updateInfo();
+    }
+
+    // ----- Promotion chooser ------------------------------------------------
+    function showPromotion(color) {
+      const modal = document.getElementById("promotion");
+      modal.querySelectorAll("button").forEach((btn) => {
+        btn.textContent = PIECES[color][btn.dataset.type];
+      });
+      modal.style.display = "flex";
+    }
+
+    function choosePromotion(type) {
+      document.getElementById("promotion").style.display = "none";
+      if (pendingPromotion) {
+        doMove({ from: pendingPromotion.from, to: pendingPromotion.to, promotion: type });
+        pendingPromotion = null;
+      }
+    }
+
+    // ----- Buttons ----------------------------------------------------------
+    function undo() {
+      const undone = game.undo();
+      if (!undone) return;
+      if (undone.captured) {
+        if (undone.color === "w") capturedByWhite.pop();
+        else capturedByBlack.pop();
+      }
+      const hist = game.history({ verbose: true });
+      lastMove = hist.length
+        ? { from: hist[hist.length - 1].from, to: hist[hist.length - 1].to }
+        : null;
+      gameOver = false;
+      clearSelection();
+      render();
+      updateInfo();
+    }
+
+    function flip() {
+      orientation = orientation === "white" ? "black" : "white";
+      render();
+    }
+
+    function setTheme(name) {
+      boardEl.className = "board theme-" + name;
+    }
+
+    function newGame() {
+      game = new Chess();
+      selectedSquare = null;
+      legalTargets = [];
+      lastMove = null;
+      capturedByWhite = [];
+      capturedByBlack = [];
+      gameOver = false;
+      stopTicker();
+      times = { w: timeControl * 60, b: timeControl * 60 };
+      render();
+      updateInfo();
+    }
+
+    // ----- Clock ------------------------------------------------------------
+    function setTimeControl(minutes) {
+      timeControl = parseInt(minutes, 10);
+      stopTicker();
+      times = { w: timeControl * 60, b: timeControl * 60 };
+      renderClocks();
+    }
+
+    function ensureTicker() {
+      if (timeControl === 0 || ticker || gameOver) return;
+      ticker = setInterval(() => {
+        if (gameOver) return;
+        const t = game.turn();
+        times[t] -= 1;
+        if (times[t] <= 0) {
+          times[t] = 0;
+          renderClocks();
+          document.getElementById("status").textContent =
+            `${t === "w" ? "White" : "Black"} ran out of time.`;
+          endGame();
+          return;
+        }
+        renderClocks();
+      }, 1000);
+    }
+
+    function stopTicker() {
+      if (ticker) {
+        clearInterval(ticker);
+        ticker = null;
+      }
+    }
+
+    function endGame() {
+      gameOver = true;
+      stopTicker();
+    }
+
+    // ----- Wiring up input (events) ----------------------------------------
+    boardEl.addEventListener("click", (e) => {
+      const sq = e.target.closest(".square");
+      if (sq) onSquareClick(sq.dataset.square);
+    });
+
+    boardEl.addEventListener("dragstart", (e) => {
+      const sq = e.target.closest(".square");
+      if (!sq) return;
+      const square = sq.dataset.square;
+      const piece = game.get(square);
+      if (gameOver || !piece || piece.color !== game.turn()) {
+        e.preventDefault();
+        return;
+      }
+      selectSquare(square);
+      e.dataTransfer.setData("text/plain", square);
+    });
+
+    boardEl.addEventListener("dragover", (e) => e.preventDefault());
+
+    boardEl.addEventListener("drop", (e) => {
+      e.preventDefault();
+      const sq = e.target.closest(".square");
+      if (!sq) return;
+      const from = e.dataTransfer.getData("text/plain");
+      const to = sq.dataset.square;
+      if (legalTargets.includes(to)) tryMove(from, to);
+      else {
+        clearSelection();
+        render();
+      }
+    });
+
+    // ----- Start ------------------------------------------------------------
+    render();
+    updateInfo();
+  </script>
+</body>
+</html>
