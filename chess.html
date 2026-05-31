@@ -60,8 +60,8 @@
     line-height: 30px;
     letter-spacing: 2px;
     color: #333;
-    overflow: hidden;
-    white-space: nowrap;
+    white-space: normal;       /* allow captured pieces to wrap to a 2nd line */
+    overflow: visible;
   }
 
   /* The board itself is an 8x8 CSS grid */
@@ -119,9 +119,11 @@
     flex-direction: column;
     gap: 8px;
     width: 160px;             /* narrower, more compact moves panel */
-    /* push the panel down so the first button lines up with the board's top
-       edge (the captured/clock row sits above the board and is 38px tall) */
+    /* match the board: align the first button with the board's top edge
+       (the captured/clock row above the board is 38px tall) and stretch the
+       column down so the moves box bottom meets the board's bottom edge */
     margin-top: 38px;
+    height: calc(var(--sq) * 8);
   }
   .sidebar button { width: 100%; }            /* stacked, equal-size buttons */
   .sidebar select { width: 100%; margin-top: 4px; }
@@ -167,7 +169,8 @@
     border: 1px solid #ccc;
     border-radius: 6px;
     padding: 8px;
-    height: 220px;
+    flex: 1;                  /* grow to fill, so its bottom meets the board's */
+    min-height: 0;
     overflow-y: auto;
     font-size: 0.9rem;
     line-height: 1.6;
@@ -208,7 +211,8 @@
       flex-direction: column;
       align-items: center;
     }
-    .sidebar { width: calc(var(--sq) * 8); margin-top: 12px; }
+    .sidebar { width: calc(var(--sq) * 8); margin-top: 12px; height: auto; }
+    .sidebar #history { height: 180px; flex: none; }
   }
 </style>
 </head>
