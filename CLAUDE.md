@@ -12,17 +12,21 @@ later gain backend-powered features.
 
 ## Structure (current)
 
-The repo is currently flat (all files in the root):
+```
+Website/
+├── index.html        — professional homepage (1729 Global brand + section links)
+├── CNAME             — custom domain: www.1729global.com
+├── CLAUDE.md
+├── README.md
+└── games/
+    ├── chess.html    — local two-player chess (chess.js library)
+    ├── sudoku.html   — Sudoku game (uses presets.js)
+    ├── tictactoe.html
+    └── presets.js    — puzzle data for Sudoku
+```
 
-- `index.html` — Tic-Tac-Toe game (also the site's landing page for now)
-- `tictactoe.html` — duplicate of `index.html` (cleanup candidate)
-- `sudoku.html` — Sudoku game
-- `sudoku-test.html` — mobile-optimised Sudoku variant (work in progress)
-- `presets.js` — puzzle data used by the Sudoku pages
-- `chess.html` — local two-player chess (uses the chess.js library)
-
-A future task is to reorganise into folders (e.g. `games/`, `investing/`) with a
-real home page at `index.html` linking to each section.
+Future sections (e.g. `investing/`) will be added as top-level folders with
+their own `index.html`, linked from the homepage.
 
 ## Conventions
 

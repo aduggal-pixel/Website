@@ -1,135 +1,262 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Tic-Tac-Toe Game</title>
-  <style>
-    body {
-      font-family: 'Arial', sans-serif;
-      background-color: #f4f4f4;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      margin: 0;
-    }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>1729 Global — Investment &amp; Advisory</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    h1 {
-      margin-bottom: 20px;
-    }
+:root {
+  --navy:   #0c1f3f;
+  --navy2:  #172d56;
+  --gold:   #c9a256;
+  --white:  #ffffff;
+  --off:    #f7f8fa;
+  --text:   #2d3748;
+  --muted:  #718096;
+  --border: #e2e8f0;
+  --shadow: 0 2px 14px rgba(0, 0, 0, 0.07);
+}
 
-    .board {
-      display: grid;
-      grid-template-columns: repeat(3, 100px);
-      grid-template-rows: repeat(3, 100px);
-      gap: 5px;
-    }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+               "Helvetica Neue", Arial, sans-serif;
+  color: var(--text);
+  background: var(--white);
+  line-height: 1.65;
+}
 
-    .cell {
-      width: 100px;
-      height: 100px;
-      background-color: #fff;
-      border: 2px solid #444;
-      font-size: 2.5rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      user-select: none;
-    }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
 
-    .cell:hover {
-      background-color: #eef;
-    }
+/* ── Header ───────────────────────────────────────────────── */
+header {
+  background: var(--navy);
+  border-bottom: 3px solid var(--gold);
+  padding: 52px 0 46px;
+}
+.brand {
+  font-size: 2.6rem;
+  font-weight: 700;
+  color: var(--white);
+  letter-spacing: -0.5px;
+}
+.brand-sub {
+  margin-top: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--gold);
+}
 
-    #resetBtn {
-      margin-top: 20px;
-      padding: 10px 20px;
-      font-size: 1rem;
-      cursor: pointer;
-    }
+/* ── Intro ────────────────────────────────────────────────── */
+.intro { padding: 60px 0 56px; background: var(--white); }
+.lead {
+  font-size: 1.15rem;
+  line-height: 1.85;
+  max-width: 760px;
+  color: var(--text);
+}
 
-    #status {
-      margin-top: 15px;
-      font-weight: bold;
-      font-size: 1.2rem;
-    }
-  </style>
+/* ── Section shared ───────────────────────────────────────── */
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+.section-head h2 { font-size: 1.45rem; font-weight: 700; color: var(--navy); }
+.badge {
+  display: inline-block;
+  padding: 3px 11px;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  background: #e8f0fe;
+  color: #3b5bdb;
+}
+.section-note { color: var(--muted); font-size: 0.95rem; margin-bottom: 36px; }
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+}
+
+/* ── Focus-area cards ─────────────────────────────────────── */
+.focus { padding: 64px 0; background: var(--off); }
+
+.focus-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 32px 28px;
+  box-shadow: var(--shadow);
+}
+.focus-icon { font-size: 1.8rem; margin-bottom: 18px; }
+.focus-title { font-size: 1.02rem; font-weight: 700; color: var(--navy); margin-bottom: 10px; }
+.focus-desc  { font-size: 0.88rem; color: var(--muted); line-height: 1.7; }
+
+/* ── Games section ────────────────────────────────────────── */
+.games { padding: 64px 0; background: var(--white); }
+
+.game-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 28px;
+  box-shadow: var(--shadow);
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.game-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.11);
+}
+.game-icon  { font-size: 1.8rem; margin-bottom: 14px; }
+.game-title { font-size: 1.02rem; font-weight: 700; color: var(--navy); margin-bottom: 8px; }
+.game-desc  { font-size: 0.875rem; color: var(--muted); line-height: 1.65; flex: 1; margin-bottom: 22px; }
+.play-btn {
+  display: inline-block;
+  align-self: flex-start;
+  padding: 8px 20px;
+  background: var(--navy);
+  color: var(--white);
+  border-radius: 7px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+.game-card:hover .play-btn { background: var(--navy2); }
+
+/* ── Footer ───────────────────────────────────────────────── */
+footer {
+  background: var(--navy);
+  border-top: 3px solid var(--gold);
+  padding: 32px 0;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.85rem;
+}
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 580px) {
+  .brand { font-size: 2rem; }
+  header { padding: 38px 0 34px; }
+  .intro, .focus, .games { padding: 44px 0; }
+  .lead { font-size: 1rem; }
+}
+</style>
 </head>
 <body>
-  <h1>Tic-Tac-Toe</h1>
-  <div class="board" id="board"></div>
-  <button id="resetBtn">Reset Game</button>
-  <div id="status"></div>
 
-  <script>
-    const boardElement = document.getElementById('board');
-    const statusElement = document.getElementById('status');
-    const resetBtn = document.getElementById('resetBtn');
+<header>
+  <div class="wrap">
+    <div class="brand">1729 Global</div>
+    <div class="brand-sub">Investment &amp; Advisory</div>
+  </div>
+</header>
 
-    let currentPlayer = 'X';
-    let board = Array(9).fill(null);
-    let gameOver = false;
+<section class="intro">
+  <div class="wrap">
+    <p class="lead">
+      1729 Global is an investment and advisory firm focused on fundamental
+      analysis, market research, and corporate governance. We combine rigorous
+      quantitative and qualitative methods to evaluate opportunities in public
+      markets and provide strategic insight to investors and companies.
+    </p>
+  </div>
+</section>
 
-    function renderBoard() {
-      boardElement.innerHTML = '';
-      board.forEach((cell, index) => {
-        const cellDiv = document.createElement('div');
-        cellDiv.className = 'cell';
-        cellDiv.textContent = cell;
-        cellDiv.addEventListener('click', () => handleCellClick(index));
-        boardElement.appendChild(cellDiv);
-      });
-      updateStatus();
-    }
+<section class="focus">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Focus Areas</h2>
+      <span class="badge">Coming Soon</span>
+    </div>
+    <p class="section-note">We are currently developing the following research and advisory capabilities.</p>
+    <div class="card-grid">
 
-    function handleCellClick(index) {
-      if (board[index] || gameOver) return;
+      <div class="focus-card">
+        <div class="focus-icon">📊</div>
+        <div class="focus-title">Weekly Market Commentary</div>
+        <p class="focus-desc">
+          Regular analysis of market developments, macroeconomic trends, and
+          key events shaping global financial markets.
+        </p>
+      </div>
 
-      board[index] = currentPlayer;
-      if (checkWinner()) {
-        statusElement.textContent = `🎉 Player ${currentPlayer} wins!`;
-        gameOver = true;
-      } else if (board.every(cell => cell)) {
-        statusElement.textContent = "It's a draw!";
-        gameOver = true;
-      } else {
-        currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
-        updateStatus();
-      }
-      renderBoard();
-    }
+      <div class="focus-card">
+        <div class="focus-icon">💼</div>
+        <div class="focus-title">Compensation Analysis</div>
+        <p class="focus-desc">
+          Systematic research into board and executive compensation structures
+          across public companies, with a focus on governance and alignment.
+        </p>
+      </div>
 
-    function updateStatus() {
-      if (!gameOver) {
-        statusElement.textContent = `Player ${currentPlayer}'s turn`;
-      }
-    }
+      <div class="focus-card">
+        <div class="focus-icon">📖</div>
+        <div class="focus-title">Investment Principles</div>
+        <p class="focus-desc">
+          A curated framework of investment philosophy, valuation methods, and
+          decision-making principles drawn from rigorous market study.
+        </p>
+      </div>
 
-    function checkWinner() {
-      const winPatterns = [
-        [0,1,2], [3,4,5], [6,7,8],
-        [0,3,6], [1,4,7], [2,5,8],
-        [0,4,8], [2,4,6]
-      ];
-      return winPatterns.some(pattern => {
-        const [a,b,c] = pattern;
-        return board[a] && board[a] === board[b] && board[a] === board[c];
-      });
-    }
+    </div>
+  </div>
+</section>
 
-    function resetGame() {
-      board = Array(9).fill(null);
-      currentPlayer = 'X';
-      gameOver = false;
-      renderBoard();
-    }
+<section class="games">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Fun Intellectual Break</h2>
+    </div>
+    <p class="section-note">A small collection of classic strategy games — a mental change of pace.</p>
+    <div class="card-grid">
 
-    resetBtn.addEventListener('click', resetGame);
+      <a class="game-card" href="games/tictactoe.html">
+        <div class="game-icon">✕&thinsp;○</div>
+        <div class="game-title">Tic-Tac-Toe</div>
+        <p class="game-desc">The timeless two-player strategy game. First to three in a row wins.</p>
+        <span class="play-btn">Play</span>
+      </a>
 
-    renderBoard();
-  </script>
+      <a class="game-card" href="games/sudoku.html">
+        <div class="game-icon">1&ndash;9</div>
+        <div class="game-title">Sudoku</div>
+        <p class="game-desc">
+          Fill the 9×9 grid so every row, column, and 3×3 box contains
+          each digit 1–9 exactly once.
+        </p>
+        <span class="play-btn">Play</span>
+      </a>
+
+      <a class="game-card" href="games/chess.html">
+        <div class="game-icon">♛︎</div>
+        <div class="game-title">Chess</div>
+        <p class="game-desc">
+          Full two-player chess with legal-move enforcement, captured-piece
+          tracking, optional clock, and move history.
+        </p>
+        <span class="play-btn">Play</span>
+      </a>
+
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>© 2025 1729 Global. All rights reserved.</p>
+  </div>
+</footer>
+
 </body>
 </html>
