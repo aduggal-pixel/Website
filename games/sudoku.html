@@ -168,7 +168,11 @@
     height: 100%;
     text-align: center;
     font-size: clamp(14px, 4.5vw, 22px);
-    font-family: inherit;
+    /* Explicit stack + weight so editable and preset cells use the SAME
+       font (iOS otherwise renders editable inputs in a different face). */
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                 "Helvetica Neue", Arial, sans-serif;
+    font-weight: 700;
     background: white;
     /* Each cell draws only its TOP and LEFT line, so every internal
        gridline is drawn exactly once — no doubled/"broken" lines beside
@@ -195,6 +199,9 @@
   .cell.fixed   { background: #e8ecf3; font-weight: 700; color: var(--navy); }
   .cell.invalid { color: #c0392b; background: #ffe6e6; }
   .highlighted  { background: #f2e6c4 !important; }   /* light gold row/col */
+  /* The cell you're actually in gets a deeper gold than its row/column.
+     Higher specificity than .highlighted, so it wins. */
+  .cell:focus   { background: #e7d199 !important; }
 
   /* iOS Safari dims disabled inputs by default; force the same look as
      desktop so preset cells aren't darker on mobile. */
