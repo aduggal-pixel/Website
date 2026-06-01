@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Quoridor — 1729 Global</title>
+<style>
+  /* ── Brand palette (matches the homepage) ──────────────────── */
+  :root {
+    --navy:   #0c1f3f;
+    --navy2:  #172d56;
+    --gold:   #c9a256;
+    --white:  #ffffff;
+    --text:   #2d3748;
+    --muted:  #718096;
+    --border: #e2e8f0;
+    --shadow: 0 2px 14px rgba(0, 0, 0, 0.07);
+
+    /* Board sizing scales with the screen. A cell is a playable square;
+       a gap is the thin groove between squares where walls slot in. */
+    --cell: clamp(30px, 8vw, 52px);
+    --gap:  clamp(13px, 3vw, 19px);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                 "Helvetica Neue", Arial, sans-serif;
+    color: var(--text);
+    background: var(--white);
+    line-height: 1.6;
+  }
+
+  /* ── Scaled-down 1729 Global header (~60% of the homepage) ──── */
+  header {
+    background: var(--navy);
+    border-bottom: 3px solid var(--gold);
+    padding: 30px 0 26px;
+    position: relative;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+  .brand {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--white);
+    letter-spacing: -0.3px;
+  }
+  .brand-sub {
+    margin-top: 6px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+  .home-link {
+    position: absolute;
+    top: 14px;
+    right: 28px;
+    color: var(--white);
+    text-decoration: none;
+    font-size: 0.82rem;
+    font-weight: 600;
+    opacity: 0.85;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    padding: 5px 12px;
+    border-radius: 6px;
+    transition: background 0.15s, opacity 0.15s;
+  }
+  .home-link:hover { background: rgba(255, 255, 255, 0.12); opacity: 1; }
+
+  /* ── Main content ──────────────────────────────────────────── */
+  main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 34px 16px 48px;
+  }
+  h1 {
+    font-size: 1.6rem;
+    color: var(--navy);
+    margin-bottom: 4px;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+    text-align: center;
+    max-width: 520px;
+  }
+
+  /* The white card that holds the controls and the board */
+  .panel {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* ── Status line + wall counters ───────────────────────────── */
+  #status {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--navy);
+    min-height: 1.4em;
+    margin-bottom: 12px;
+    text-align: center;
+  }
+  .counters {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  .chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 22px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: 2px solid transparent;
+    background: #f1f4f9;
+    color: var(--text);
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .chip .dot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+  }
+  .chip.p0 .dot { background: var(--navy); }
+  .chip.p1 .dot { background: var(--gold); border: 1px solid var(--navy); }
+  .chip.active {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 1px var(--gold);
+  }
+
+  /* ── Controls bar ──────────────────────────────────────────── */
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+  .seg {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .seg button {
+    border: none;
+    background: var(--white);
+    color: var(--navy);
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .seg button + button { border-left: 1px solid var(--border); }
+  .seg button.active { background: var(--navy); color: var(--white); }
+  .seg button:disabled { color: #b8c0cc; cursor: not-allowed; }
+
+  .btn {
+    border: none;
+    background: var(--navy);
+    color: var(--white);
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn:hover { background: var(--gold); color: var(--navy); }
+
+  /* ── The board (a 17×17 CSS grid: 9 cells + 8 grooves each way) ─ */
+  #board {
+    display: grid;
+    background: var(--navy);
+    padding: 6px;
+    border-radius: 8px;
+    position: relative;
+  }
+
+  .cell {
+    width: var(--cell);
+    height: var(--cell);
+    background: #eef1f6;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    cursor: default;
+  }
+
+  /* A pawn is a coloured disc */
+  .pawn {
+    width: 72%;
+    height: 72%;
+    border-radius: 50%;
+  }
+  .pawn.p0 { background: var(--navy); box-shadow: inset 0 0 0 2px #2b4a7e; }
+  .pawn.p1 { background: var(--gold); box-shadow: inset 0 0 0 2px #8a6c2f; }
+
+  /* Legal-move hint: a translucent dot inside the destination cell */
+  .cell.target { cursor: pointer; }
+  .cell.target::after {
+    content: "";
+    position: absolute;
+    width: 34%; height: 34%;
+    border-radius: 50%;
+    background: rgba(12, 31, 63, 0.35);
+  }
+
+  /* Wall click/hover anchors sit at the 8×8 groove intersections */
+  .wallzone { position: relative; }
+  #board.mode-wall .wallzone { cursor: pointer; }
+  #board.mode-wall .wallzone::after {
+    content: "";
+    position: absolute;
+    inset: 25%;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.35);
+  }
+
+  /* Placed walls and the hover preview are gold bars laid over the grooves */
+  .wall {
+    border-radius: 3px;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .wall.placed  { background: var(--gold); box-shadow: 0 1px 3px rgba(0,0,0,0.4); }
+  .wall.preview-ok  { background: rgba(201, 162, 86, 0.7); }
+  .wall.preview-bad { background: rgba(214, 60, 60, 0.7); }
+
+  .hint {
+    color: var(--muted);
+    font-size: 0.8rem;
+    margin-top: 16px;
+    text-align: center;
+    max-width: 460px;
+  }
+  .hint strong { color: var(--navy); }
+
+  @media (max-width: 700px) {
+    .wrap { padding: 0 16px; }
+    .home-link { right: 16px; }
+    main { padding: 22px 8px 36px; }
+    .panel { padding: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="brand">1729 Global</div>
+    <div class="brand-sub">An Investment &amp; Advisory Firm</div>
+    <a class="home-link" href="../index.html">&#8592; Home</a>
+  </div>
+</header>
+
+<main>
+  <h1>Quoridor</h1>
+  <p class="subtitle">
+    A two-player race across the board. On your turn, move your pawn one square
+    or place a wall to slow your opponent — first pawn to the far side wins.
+  </p>
+
+  <div class="panel">
+    <div id="status">Player 1 to move</div>
+
+    <div class="counters">
+      <div class="chip p0" id="chip0"><span class="dot"></span>Player 1 — 10 walls</div>
+      <div class="chip p1" id="chip1"><span class="dot"></span>Player 2 — 10 walls</div>
+    </div>
+
+    <div class="controls">
+      <div class="seg" id="modeToggle">
+        <button data-mode="move" class="active">Move</button>
+        <button data-mode="wall">Place Wall</button>
+      </div>
+      <div class="seg" id="orientToggle">
+        <button data-orient="H" class="active" disabled>Horizontal</button>
+        <button data-orient="V" disabled>Vertical</button>
+      </div>
+      <button class="btn" id="newGame">New Game</button>
+    </div>
+
+    <div id="board"></div>
+  </div>
+
+  <p class="hint">
+    <strong>Walls:</strong> switch to <em>Place Wall</em>, pick an orientation
+    (or press <strong>R</strong> to flip), then click a groove intersection.
+    A wall can never seal off a player's only path to the far side.
+  </p>
+</main>
+
+<script>
+/* ============================================================================
+   QUORIDOR — local two-player (hot-seat). Vanilla JS, no build step.
+
+   Coordinates
+   -----------
+   Cells:  c = column 0..8 (left→right), r = row 0..8 (top→bottom).
+           Row 0 is the TOP edge, row 8 is the BOTTOM edge.
+   Walls:  stored as {c, r, o} where (c, r) is an anchor on the 8×8 grid of
+           groove intersections (each 0..7) and o is 'H' or 'V'.
+           A horizontal wall at (c,r) blocks the vertical steps
+             (c,r)↔(c,r+1) and (c+1,r)↔(c+1,r+1).
+           A vertical wall at (c,r) blocks the horizontal steps
+             (c,r)↔(c+1,r) and (c,r+1)↔(c+1,r+1).
+
+   Player 1 (navy) starts bottom-centre and races to row 0.
+   Player 2 (gold) starts top-centre and races to row 8.
+============================================================================ */
+
+const N = 9;             // board is 9×9
+const WALLS_PER = 10;    // walls each player starts with
+const GOAL_ROW = [0, N - 1];   // the row each player is trying to reach
+
+let state, mode, orient;       // game state + UI mode ('move'/'wall') + 'H'/'V'
+
+const boardEl  = document.getElementById("board");
+const statusEl = document.getElementById("status");
+
+/* ── Small geometry helpers ─────────────────────────────────── */
+function inBounds(c, r) { return c >= 0 && c < N && r >= 0 && r < N; }
+
+// Is the step between two orthogonally-adjacent cells blocked by a wall?
+function isBlocked(c1, r1, c2, r2, walls) {
+  if (r1 === r2) {
+    // Horizontal step → blocked by a vertical wall on the groove between them
+    const minc = Math.min(c1, c2);
+    return walls.some(w => w.o === "V" && w.c === minc && (w.r === r1 || w.r === r1 - 1));
+  } else {
+    // Vertical step → blocked by a horizontal wall on the groove between them
+    const minr = Math.min(r1, r2);
+    return walls.some(w => w.o === "H" && w.r === minr && (w.c === c1 || w.c === c1 - 1));
+  }
+}
+
+/* ── Legal pawn moves (including jumps over the opponent) ───── */
+function legalPawnMoves(player, st) {
+  const me  = st.pawns[player];
+  const opp = st.pawns[1 - player];
+  const dirs = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+  const moves = [];
+
+  for (const [dc, dr] of dirs) {
+    const fc = me.c + dc, fr = me.r + dr;
+    if (!inBounds(fc, fr)) continue;
+    if (isBlocked(me.c, me.r, fc, fr, st.walls)) continue;
+
+    if (opp.c === fc && opp.r === fr) {
+      // Opponent is in the way → try to jump straight over it
+      const bc = fc + dc, br = fr + dr;
+      if (inBounds(bc, br) && !isBlocked(fc, fr, bc, br, st.walls)) {
+        moves.push({ c: bc, r: br });
+      } else {
+        // Blocked behind → may step diagonally to either side instead
+        const perps = dc === 0 ? [[-1, 0], [1, 0]] : [[0, -1], [0, 1]];
+        for (const [pc, pr] of perps) {
+          const gc = fc + pc, gr = fr + pr;
+          if (inBounds(gc, gr) && !isBlocked(fc, fr, gc, gr, st.walls)) {
+            moves.push({ c: gc, r: gr });
+          }
+        }
+      }
+    } else {
+      moves.push({ c: fc, r: fr });
+    }
+  }
+  return moves;
+}
+
+/* ── Wall legality ──────────────────────────────────────────── */
+function wallsOverlapOrCross(wall, walls) {
+  for (const w of walls) {
+    // Same anchor → either an exact overlap or a perpendicular cross. Both illegal.
+    if (w.c === wall.c && w.r === wall.r) return true;
+    // Two same-orientation walls collide if they sit one apart along their line.
+    if (w.o === wall.o) {
+      if (wall.o === "H" && w.r === wall.r && Math.abs(w.c - wall.c) === 1) return true;
+      if (wall.o === "V" && w.c === wall.c && Math.abs(w.r - wall.r) === 1) return true;
+    }
+  }
+  return false;
+}
+
+// BFS: can `player` still reach their goal row given these walls?
+// (The opponent pawn is NOT treated as a blocker — you can always route around.)
+function pathExists(player, walls, pawns) {
+  const start = pawns[player];
+  const goal = GOAL_ROW[player];
+  const seen = new Set([start.c + "," + start.r]);
+  const queue = [start];
+
+  while (queue.length) {
+    const { c, r } = queue.shift();
+    if (r === goal) return true;
+    for (const [dc, dr] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+      const nc = c + dc, nr = r + dr;
+      if (!inBounds(nc, nr)) continue;
+      if (isBlocked(c, r, nc, nr, walls)) continue;
+      const key = nc + "," + nr;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      queue.push({ c: nc, r: nr });
+    }
+  }
+  return false;
+}
+
+function canPlaceWall(wall, st) {
+  if (st.wallsLeft[st.turn] <= 0) return false;
+  if (wall.c < 0 || wall.c > N - 2 || wall.r < 0 || wall.r > N - 2) return false;
+  if (wallsOverlapOrCross(wall, st.walls)) return false;
+  const test = st.walls.concat([wall]);   // hypothetically add the wall
+  return pathExists(0, test, st.pawns) && pathExists(1, test, st.pawns);
+}
+
+/* ── Rendering ──────────────────────────────────────────────── */
+function buildGridTemplate() {
+  const tracks = [];
+  for (let i = 0; i < N; i++) {
+    tracks.push("var(--cell)");
+    if (i < N - 1) tracks.push("var(--gap)");
+  }
+  return tracks.join(" ");
+}
+
+function render() {
+  boardEl.innerHTML = "";
+  const tmpl = buildGridTemplate();
+  boardEl.style.gridTemplateColumns = tmpl;
+  boardEl.style.gridTemplateRows = tmpl;
+  boardEl.classList.toggle("mode-wall", mode === "wall" && !state.winner);
+
+  // Which cells are legal destinations right now?
+  const targets = (mode === "move" && !state.winner)
+    ? legalPawnMoves(state.turn, state) : [];
+  const isTarget = (c, r) => targets.some(t => t.c === c && t.r === r);
+
+  // 81 cells
+  for (let r = 0; r < N; r++) {
+    for (let c = 0; c < N; c++) {
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      cell.style.gridColumn = (2 * c + 1);
+      cell.style.gridRow = (2 * r + 1);
+      cell.dataset.col = c;
+      cell.dataset.row = r;
+      if (isTarget(c, r)) cell.classList.add("target");
+
+      for (let p = 0; p < 2; p++) {
+        if (state.pawns[p].c === c && state.pawns[p].r === r) {
+          const pawn = document.createElement("div");
+          pawn.className = "pawn p" + p;
+          cell.appendChild(pawn);
+        }
+      }
+      boardEl.appendChild(cell);
+    }
+  }
+
+  // 64 wall anchors (the groove intersections), used for hover/click
+  for (let wr = 0; wr < N - 1; wr++) {
+    for (let wc = 0; wc < N - 1; wc++) {
+      const zone = document.createElement("div");
+      zone.className = "wallzone";
+      zone.style.gridColumn = (2 * wc + 2);
+      zone.style.gridRow = (2 * wr + 2);
+      zone.dataset.wc = wc;
+      zone.dataset.wr = wr;
+      boardEl.appendChild(zone);
+    }
+  }
+
+  // Placed walls
+  for (const w of state.walls) boardEl.appendChild(makeWallEl(w, "placed"));
+
+  renderStatus();
+}
+
+// Build a gold bar element spanning the two grooves a wall occupies.
+function makeWallEl(wall, kind) {
+  const el = document.createElement("div");
+  el.className = "wall " + kind;
+  if (wall.o === "H") {
+    el.style.gridColumn = (2 * wall.c + 1) + " / " + (2 * wall.c + 4); // 2 cells + groove
+    el.style.gridRow = (2 * wall.r + 2) + " / " + (2 * wall.r + 3);    // the groove row
+  } else {
+    el.style.gridColumn = (2 * wall.c + 2) + " / " + (2 * wall.c + 3); // the groove column
+    el.style.gridRow = (2 * wall.r + 1) + " / " + (2 * wall.r + 4);    // 2 cells + groove
+  }
+  return el;
+}
+
+function renderStatus() {
+  const chip0 = document.getElementById("chip0");
+  const chip1 = document.getElementById("chip1");
+  chip0.textContent = "";
+  chip0.innerHTML = '<span class="dot"></span>Player 1 — ' + state.wallsLeft[0] + " walls";
+  chip1.innerHTML = '<span class="dot"></span>Player 2 — ' + state.wallsLeft[1] + " walls";
+  chip0.classList.toggle("active", state.turn === 0 && !state.winner);
+  chip1.classList.toggle("active", state.turn === 1 && !state.winner);
+
+  if (state.winner !== null) {
+    statusEl.textContent = "Player " + (state.winner + 1) + " wins! 🎉";
+  } else {
+    statusEl.textContent = "Player " + (state.turn + 1) + " to move";
+  }
+}
+
+/* ── Hover preview for wall placement ───────────────────────── */
+function clearPreview() {
+  boardEl.querySelectorAll(".wall.preview-ok, .wall.preview-bad").forEach(e => e.remove());
+}
+
+function previewWall(wc, wr) {
+  clearPreview();
+  if (mode !== "wall" || state.winner !== null) return;
+  const wall = { c: wc, r: wr, o: orient };
+  const kind = canPlaceWall(wall, state) ? "preview-ok" : "preview-bad";
+  boardEl.appendChild(makeWallEl(wall, kind));
+}
+
+/* ── Turn flow ──────────────────────────────────────────────── */
+function applyMove(dest) {
+  state.pawns[state.turn] = { c: dest.c, r: dest.r };
+  if (state.pawns[state.turn].r === GOAL_ROW[state.turn]) {
+    state.winner = state.turn;
+  } else {
+    state.turn = 1 - state.turn;
+  }
+  render();
+}
+
+function applyWall(wall) {
+  state.walls.push(wall);
+  state.wallsLeft[state.turn]--;
+  state.turn = 1 - state.turn;   // placing a wall can never win
+  render();
+}
+
+/* ── Input handlers ─────────────────────────────────────────── */
+function onBoardClick(e) {
+  if (state.winner !== null) return;
+
+  if (mode === "move") {
+    const cell = e.target.closest(".cell");
+    if (!cell) return;
+    const c = +cell.dataset.col, r = +cell.dataset.row;
+    if (legalPawnMoves(state.turn, state).some(t => t.c === c && t.r === r)) {
+      applyMove({ c, r });
+    }
+  } else { // wall mode
+    const zone = e.target.closest(".wallzone");
+    if (!zone) return;
+    const wall = { c: +zone.dataset.wc, r: +zone.dataset.wr, o: orient };
+    if (canPlaceWall(wall, state)) applyWall(wall);
+  }
+}
+
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll("#modeToggle button").forEach(b =>
+    b.classList.toggle("active", b.dataset.mode === m));
+  document.querySelectorAll("#orientToggle button").forEach(b => b.disabled = (m !== "wall"));
+  clearPreview();
+  render();
+}
+
+function setOrientation(o) {
+  orient = o;
+  document.querySelectorAll("#orientToggle button").forEach(b =>
+    b.classList.toggle("active", b.dataset.orient === o));
+  clearPreview();
+}
+
+function newGame() {
+  state = {
+    pawns: [{ c: 4, r: N - 1 }, { c: 4, r: 0 }],
+    walls: [],
+    wallsLeft: [WALLS_PER, WALLS_PER],
+    turn: 0,
+    winner: null
+  };
+  setMode("move");
+  setOrientation("H");
+  render();
+}
+
+/* ── Wire up events ─────────────────────────────────────────── */
+boardEl.addEventListener("click", onBoardClick);
+boardEl.addEventListener("mouseover", e => {
+  const zone = e.target.closest(".wallzone");
+  if (zone) previewWall(+zone.dataset.wc, +zone.dataset.wr);
+});
+boardEl.addEventListener("mouseout", e => {
+  if (e.target.closest(".wallzone")) clearPreview();
+});
+
+document.getElementById("modeToggle").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (b) setMode(b.dataset.mode);
+});
+document.getElementById("orientToggle").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (b && !b.disabled) setOrientation(b.dataset.orient);
+});
+document.getElementById("newGame").addEventListener("click", newGame);
+
+// Press R to flip wall orientation (handy while placing walls)
+document.addEventListener("keydown", e => {
+  if (e.key === "r" || e.key === "R") {
+    if (mode === "wall") setOrientation(orient === "H" ? "V" : "H");
+  }
+});
+
+newGame();   // start a fresh game on load
+</script>
+</body>
+</html>
