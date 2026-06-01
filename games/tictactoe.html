@@ -2,135 +2,255 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Tic-Tac-Toe Game</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tic-Tac-Toe — 1729 Global</title>
   <style>
+    /* ── Brand palette ──────────────────────────────────────────── */
+    :root {
+      --navy:   #0c1f3f;
+      --navy2:  #172d56;
+      --gold:   #c9a256;
+      --white:  #ffffff;
+      --text:   #2d3748;
+      --muted:  #718096;
+      --border: #e2e8f0;
+      --shadow: 0 2px 14px rgba(0, 0, 0, 0.07);
+      --cell:   clamp(80px, 22vw, 110px);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      font-family: 'Arial', sans-serif;
-      background-color: #f4f4f4;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                   "Helvetica Neue", Arial, sans-serif;
+      color: var(--text);
+      background: var(--white);
+      line-height: 1.6;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────── */
+    header {
+      background: var(--navy);
+      border-bottom: 3px solid var(--gold);
+      padding: 30px 0 26px;
+      position: relative;
+    }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+    .brand {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--white);
+      letter-spacing: -0.3px;
+    }
+    .brand-sub {
+      margin-top: 6px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: var(--gold);
+    }
+    .home-link {
+      position: absolute;
+      top: 14px;
+      right: 28px;
+      color: var(--white);
+      text-decoration: none;
+      font-size: 0.82rem;
+      font-weight: 600;
+      opacity: 0.85;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      padding: 5px 12px;
+      border-radius: 6px;
+      transition: background 0.15s, opacity 0.15s;
+    }
+    .home-link:hover { background: rgba(255, 255, 255, 0.12); opacity: 1; }
+
+    /* ── Main content ────────────────────────────────────────────── */
+    main {
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      height: 100vh;
-      margin: 0;
+      padding: 34px 16px 48px;
     }
-
     h1 {
+      font-size: 1.6rem;
+      color: var(--navy);
+      margin-bottom: 4px;
+    }
+    .subtitle {
+      color: var(--muted);
+      font-size: 0.9rem;
       margin-bottom: 20px;
     }
 
+    /* ── Game card ───────────────────────────────────────────────── */
+    .panel {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── Status ──────────────────────────────────────────────────── */
+    #status {
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--navy);
+      min-height: 1.4em;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    /* ── Board ───────────────────────────────────────────────────── */
     .board {
       display: grid;
-      grid-template-columns: repeat(3, 100px);
-      grid-template-rows: repeat(3, 100px);
-      gap: 5px;
+      grid-template-columns: repeat(3, var(--cell));
+      grid-template-rows: repeat(3, var(--cell));
+      gap: 6px;
+      background: var(--navy);
+      padding: 6px;
+      border-radius: 8px;
     }
 
     .cell {
-      width: 100px;
-      height: 100px;
-      background-color: #fff;
-      border: 2px solid #444;
-      font-size: 2.5rem;
+      width: var(--cell);
+      height: var(--cell);
+      background: #eef1f6;
+      border-radius: 5px;
+      font-size: calc(var(--cell) * 0.48);
+      font-weight: 700;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
       user-select: none;
+      transition: background 0.12s;
     }
+    .cell:hover:not(.taken) { background: #dde4f0; }
+    .cell.taken { cursor: default; }
+    .cell.x { color: var(--navy); }
+    .cell.o { color: var(--gold); }
+    .cell.winner { background: #fffbef; }
 
-    .cell:hover {
-      background-color: #eef;
-    }
-
-    #resetBtn {
-      margin-top: 20px;
-      padding: 10px 20px;
-      font-size: 1rem;
+    /* ── Reset button ────────────────────────────────────────────── */
+    .btn {
+      margin-top: 22px;
+      border: none;
+      background: var(--navy);
+      color: var(--white);
+      font: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 8px 20px;
+      border-radius: 8px;
       cursor: pointer;
+      transition: background 0.15s;
     }
+    .btn:hover { background: var(--gold); color: var(--navy); }
 
-    #status {
-      margin-top: 15px;
-      font-weight: bold;
-      font-size: 1.2rem;
+    @media (max-width: 580px) {
+      .wrap { padding: 0 16px; }
+      .home-link { right: 16px; }
+      main { padding: 22px 8px 36px; }
+      .panel { padding: 18px; }
     }
   </style>
 </head>
 <body>
-  <a href="../index.html" style="position:fixed;top:12px;left:14px;background:#0c1f3f;color:#fff;padding:5px 13px;border-radius:6px;font-size:0.8rem;font-family:-apple-system,BlinkMacSystemFont,sans-serif;text-decoration:none;z-index:9999;opacity:0.88;letter-spacing:0.2px;">&#8592; Home</a>
+
+<header>
+  <div class="wrap">
+    <div class="brand">1729 Global</div>
+    <div class="brand-sub">An Investment &amp; Advisory Firm</div>
+    <a class="home-link" href="../index.html">&#8592; Home</a>
+  </div>
+</header>
+
+<main>
   <h1>Tic-Tac-Toe</h1>
-  <div class="board" id="board"></div>
-  <button id="resetBtn">Reset Game</button>
-  <div id="status"></div>
+  <p class="subtitle">Two players take turns. First to get three in a row wins.</p>
 
-  <script>
-    const boardElement = document.getElementById('board');
-    const statusElement = document.getElementById('status');
-    const resetBtn = document.getElementById('resetBtn');
+  <div class="panel">
+    <div id="status"></div>
+    <div class="board" id="board"></div>
+    <button class="btn" id="resetBtn">New Game</button>
+  </div>
+</main>
 
-    let currentPlayer = 'X';
-    let board = Array(9).fill(null);
-    let gameOver = false;
+<script>
+  const boardEl  = document.getElementById('board');
+  const statusEl = document.getElementById('status');
+  const resetBtn = document.getElementById('resetBtn');
 
-    function renderBoard() {
-      boardElement.innerHTML = '';
-      board.forEach((cell, index) => {
-        const cellDiv = document.createElement('div');
-        cellDiv.className = 'cell';
-        cellDiv.textContent = cell;
-        cellDiv.addEventListener('click', () => handleCellClick(index));
-        boardElement.appendChild(cellDiv);
-      });
-      updateStatus();
+  let currentPlayer = 'X';
+  let board = Array(9).fill(null);
+  let gameOver = false;
+
+  const WIN_PATTERNS = [
+    [0,1,2],[3,4,5],[6,7,8],
+    [0,3,6],[1,4,7],[2,5,8],
+    [0,4,8],[2,4,6]
+  ];
+
+  function getWinnerCells() {
+    for (const [a,b,c] of WIN_PATTERNS) {
+      if (board[a] && board[a] === board[b] && board[a] === board[c]) return [a,b,c];
     }
+    return null;
+  }
 
-    function handleCellClick(index) {
-      if (board[index] || gameOver) return;
+  function renderBoard() {
+    const winCells = getWinnerCells();
+    boardEl.innerHTML = '';
+    board.forEach((cell, index) => {
+      const div = document.createElement('div');
+      div.className = 'cell' +
+        (cell ? ' taken ' + cell.toLowerCase() : '') +
+        (winCells && winCells.includes(index) ? ' winner' : '');
+      div.textContent = cell || '';
+      if (!cell && !gameOver) div.addEventListener('click', () => handleCellClick(index));
+      boardEl.appendChild(div);
+    });
+    updateStatus();
+  }
 
-      board[index] = currentPlayer;
-      if (checkWinner()) {
-        statusElement.textContent = `🎉 Player ${currentPlayer} wins!`;
-        gameOver = true;
-      } else if (board.every(cell => cell)) {
-        statusElement.textContent = "It's a draw!";
-        gameOver = true;
-      } else {
-        currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
-        updateStatus();
-      }
-      renderBoard();
+  function handleCellClick(index) {
+    if (board[index] || gameOver) return;
+    board[index] = currentPlayer;
+    if (getWinnerCells()) {
+      gameOver = true;
+    } else if (board.every(c => c)) {
+      gameOver = true;
+    } else {
+      currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
     }
-
-    function updateStatus() {
-      if (!gameOver) {
-        statusElement.textContent = `Player ${currentPlayer}'s turn`;
-      }
-    }
-
-    function checkWinner() {
-      const winPatterns = [
-        [0,1,2], [3,4,5], [6,7,8],
-        [0,3,6], [1,4,7], [2,5,8],
-        [0,4,8], [2,4,6]
-      ];
-      return winPatterns.some(pattern => {
-        const [a,b,c] = pattern;
-        return board[a] && board[a] === board[b] && board[a] === board[c];
-      });
-    }
-
-    function resetGame() {
-      board = Array(9).fill(null);
-      currentPlayer = 'X';
-      gameOver = false;
-      renderBoard();
-    }
-
-    resetBtn.addEventListener('click', resetGame);
-
     renderBoard();
-  </script>
+  }
+
+  function updateStatus() {
+    if (getWinnerCells()) {
+      statusEl.textContent = 'Player ' + currentPlayer + ' wins!';
+    } else if (board.every(c => c)) {
+      statusEl.textContent = "It's a draw!";
+    } else {
+      statusEl.textContent = "Player " + currentPlayer + "'s turn";
+    }
+  }
+
+  function resetGame() {
+    board = Array(9).fill(null);
+    currentPlayer = 'X';
+    gameOver = false;
+    renderBoard();
+  }
+
+  resetBtn.addEventListener('click', resetGame);
+  renderBoard();
+</script>
 </body>
 </html>
