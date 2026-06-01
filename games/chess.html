@@ -199,7 +199,39 @@
     height: calc(var(--sq) * 8);
   }
   .sidebar button { width: 100%; }            /* stacked, equal-size buttons */
-  .sidebar select { width: 100%; margin-top: 4px; }
+
+  /* Clock control: a segmented group of small buttons in a navy-bordered box */
+  .clock-control {
+    border: 1px solid var(--navy);
+    border-radius: 8px;
+    padding: 8px;
+  }
+  .clock-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--navy);
+    margin-bottom: 7px;
+  }
+  .clock-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+  /* Override the full-width sidebar-button rule so these sit side by side */
+  .sidebar .clock-opt {
+    width: auto;
+    flex: 1 1 auto;
+    min-width: 34px;
+    padding: 6px 0;
+    font-size: 0.82rem;
+    font-weight: 600;
+    border-radius: 6px;
+  }
+  .sidebar .clock-opt:hover { background: var(--navy2); color: #fff; }
+  .clock-opt.active { background: var(--gold); color: var(--navy); }
+  .clock-opt.active:hover { background: var(--gold); color: var(--navy); }
 
   /* Small clocks tucked beside the board */
   .clock {
@@ -328,16 +360,17 @@
         <button onclick="newGame()">New Game</button>
         <button onclick="undo()">Undo</button>
         <button onclick="flip()">Flip</button>
-        <label>Clock:
-          <select onchange="setTimeControl(this.value)">
-            <option value="0">No clock</option>
-            <option value="5">5 min</option>
-            <option value="10">10 min</option>
-            <option value="15">15 min</option>
-            <option value="30">30 min</option>
-            <option value="60">60 min</option>
-          </select>
-        </label>
+        <div class="clock-control">
+          <div class="clock-label">Clock</div>
+          <div class="clock-options" id="clockOptions">
+            <button type="button" class="clock-opt active" data-min="0">Off</button>
+            <button type="button" class="clock-opt" data-min="5">5</button>
+            <button type="button" class="clock-opt" data-min="10">10</button>
+            <button type="button" class="clock-opt" data-min="15">15</button>
+            <button type="button" class="clock-opt" data-min="30">30</button>
+            <button type="button" class="clock-opt" data-min="60">60</button>
+          </div>
+        </div>
         <div id="history"></div>
       </div>
     </div>
@@ -713,6 +746,17 @@
         clearSelection();
         render();
       }
+    });
+
+    // Clock control: clicking a time option highlights it and sets the clock.
+    document.getElementById("clockOptions").addEventListener("click", (e) => {
+      const btn = e.target.closest(".clock-opt");
+      if (!btn) return;
+      document
+        .querySelectorAll("#clockOptions .clock-opt")
+        .forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      setTimeControl(btn.dataset.min);
     });
 
     // ----- Start ------------------------------------------------------------
