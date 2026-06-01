@@ -190,19 +190,20 @@
   .sidebar {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 14px;
     width: 160px;             /* narrower, more compact moves panel */
     /* match the board: align the first button with the board's top edge
        (the captured/clock row above the board is 38px tall) and stretch the
-       column down so the moves box bottom meets the board's bottom edge */
+       column down so the moves box bottom meets the board's bottom edge.
+       The +6px matches the board's 3px top+bottom border. */
     margin-top: 38px;
-    height: calc(var(--sq) * 8);
+    height: calc(var(--sq) * 8 + 6px);
   }
   .sidebar button { width: 100%; }            /* stacked, equal-size buttons */
 
   /* Clock control: a segmented group of small buttons in a navy-bordered box */
   .clock-control {
-    border: 1px solid var(--navy);
+    border: 2px solid var(--navy);
     border-radius: 8px;
     padding: 8px;
   }
@@ -212,6 +213,7 @@
     letter-spacing: 1px;
     text-transform: uppercase;
     color: var(--navy);
+    text-align: center;
     margin-bottom: 7px;
   }
   .clock-options {
