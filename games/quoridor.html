@@ -182,6 +182,11 @@
     transition: background 0.15s;
   }
   .btn:hover { background: var(--gold); color: var(--navy); }
+  .btn:disabled {
+    background: #e2e8f0;
+    color: #b8c0cc;
+    cursor: not-allowed;
+  }
 
   /* ── The board (a 17×17 CSS grid: 9 cells + 8 grooves each way) ─ */
   #board {
@@ -190,6 +195,7 @@
     padding: 6px;
     border-radius: 8px;
     position: relative;
+    touch-action: none;   /* let us drive wall previews with touch-drag */
   }
 
   .cell {
@@ -295,6 +301,7 @@
         <button data-orient="H" class="active" disabled>Horizontal</button>
         <button data-orient="V" disabled>Vertical</button>
       </div>
+      <button class="btn" id="undo" disabled>Undo</button>
       <button class="btn" id="newGame">New Game</button>
     </div>
 
@@ -332,6 +339,8 @@ const WALLS_PER = 10;    // walls each player starts with
 const GOAL_ROW = [0, N - 1];   // the row each player is trying to reach
 
 let state, mode, orient;       // game state + UI mode ('move'/'wall') + 'H'/'V'
+let history = [];              // stack of past states, for Undo
+let touchAnchor = null;        // wall anchor currently under a dragging finger
 
 const boardEl  = document.getElementById("board");
 const statusEl = document.getElementById("status");
@@ -493,6 +502,7 @@ function render() {
   for (const w of state.walls) boardEl.appendChild(makeWallEl(w, "placed"));
 
   renderStatus();
+  document.getElementById("undo").disabled = history.length === 0;
 }
 
 // Build a gold bar element spanning the two grooves a wall occupies.
@@ -539,21 +549,46 @@ function previewWall(wc, wr) {
 }
 
 /* ── Turn flow ──────────────────────────────────────────────── */
+// Take a deep copy of the current game state (for the Undo stack).
+function snapshot() {
+  return {
+    pawns: state.pawns.map(p => ({ ...p })),
+    walls: state.walls.map(w => ({ ...w })),
+    wallsLeft: state.wallsLeft.slice(),
+    turn: state.turn,
+    winner: state.winner
+  };
+}
+
+// Each new turn starts back on Move mode with Horizontal orientation.
+function startTurnUI() {
+  setOrientation("H");
+  setMode("move");   // setMode() also re-renders the board
+}
+
 function applyMove(dest) {
+  history.push(snapshot());
   state.pawns[state.turn] = { c: dest.c, r: dest.r };
   if (state.pawns[state.turn].r === GOAL_ROW[state.turn]) {
     state.winner = state.turn;
   } else {
     state.turn = 1 - state.turn;
   }
-  render();
+  startTurnUI();
 }
 
 function applyWall(wall) {
+  history.push(snapshot());
   state.walls.push(wall);
   state.wallsLeft[state.turn]--;
   state.turn = 1 - state.turn;   // placing a wall can never win
-  render();
+  startTurnUI();
+}
+
+function undo() {
+  if (!history.length) return;
+  state = history.pop();
+  startTurnUI();
 }
 
 /* ── Input handlers ─────────────────────────────────────────── */
@@ -599,9 +634,50 @@ function newGame() {
     turn: 0,
     winner: null
   };
-  setMode("move");
+  history = [];
+  touchAnchor = null;
   setOrientation("H");
-  render();
+  setMode("move");   // re-renders the board
+}
+
+/* On touch screens there is no hover, so we let the player drag a finger to
+   preview the wall (snapping to the nearest slot) and commit it on release. */
+function nearestAnchor(x, y) {
+  const rect = boardEl.getBoundingClientRect();
+  if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) return null;
+  let best = null, bestD = Infinity;
+  boardEl.querySelectorAll(".wallzone").forEach(z => {
+    const r = z.getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const d = (cx - x) * (cx - x) + (cy - y) * (cy - y);
+    if (d < bestD) { bestD = d; best = z; }
+  });
+  return best;
+}
+
+function onTouchPreview(e) {
+  if (mode !== "wall" || state.winner !== null) return;
+  e.preventDefault();   // stop the page scrolling while placing a wall
+  const t = e.touches[0];
+  const zone = nearestAnchor(t.clientX, t.clientY);
+  if (zone) {
+    touchAnchor = zone;
+    previewWall(+zone.dataset.wc, +zone.dataset.wr);
+  } else {
+    touchAnchor = null;
+    clearPreview();   // finger drifted off the board → no wall
+  }
+}
+
+function onTouchEnd(e) {
+  if (mode !== "wall" || state.winner !== null) return;
+  e.preventDefault();
+  if (touchAnchor) {
+    const wall = { c: +touchAnchor.dataset.wc, r: +touchAnchor.dataset.wr, o: orient };
+    if (canPlaceWall(wall, state)) applyWall(wall);
+  }
+  touchAnchor = null;
+  clearPreview();
 }
 
 /* ── Wire up events ─────────────────────────────────────────── */
@@ -613,6 +689,9 @@ boardEl.addEventListener("mouseover", e => {
 boardEl.addEventListener("mouseout", e => {
   if (e.target.closest(".wallzone")) clearPreview();
 });
+boardEl.addEventListener("touchstart", onTouchPreview, { passive: false });
+boardEl.addEventListener("touchmove", onTouchPreview, { passive: false });
+boardEl.addEventListener("touchend", onTouchEnd, { passive: false });
 
 document.getElementById("modeToggle").addEventListener("click", e => {
   const b = e.target.closest("button"); if (b) setMode(b.dataset.mode);
@@ -620,6 +699,7 @@ document.getElementById("modeToggle").addEventListener("click", e => {
 document.getElementById("orientToggle").addEventListener("click", e => {
   const b = e.target.closest("button"); if (b && !b.disabled) setOrientation(b.dataset.orient);
 });
+document.getElementById("undo").addEventListener("click", undo);
 document.getElementById("newGame").addEventListener("click", newGame);
 
 // Press R to flip wall orientation (handy while placing walls)
