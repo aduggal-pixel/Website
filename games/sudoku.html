@@ -188,6 +188,17 @@
     border-radius: 0;
     -webkit-appearance: none;
     color: var(--navy);
+    /* No blinking text cursor — the gold highlight already shows the
+       cell you're in, so the caret would just add visual noise. */
+    caret-color: transparent;
+  }
+
+  /* Numbers YOU type land in editable (non-preset) cells. Give them a
+     lighter blue than the navy preset clues so the two are easy to tell
+     apart at a glance. (-webkit-text-fill-color keeps iOS in line.) */
+  .cell:not(.fixed) {
+    color: #2c6fb0;
+    -webkit-text-fill-color: #2c6fb0;
   }
 
   /* Thick navy dividers between the 3×3 boxes and around the outer edge */
@@ -197,11 +208,16 @@
   .cell.border-bottom { border-bottom: 2px solid var(--navy); }
 
   .cell.fixed   { background: #d4dcea; font-weight: 700; color: var(--navy); }
-  .cell.invalid { color: #c0392b; background: #ffe6e6; }
+  /* Wrong entries: red digit only — no background tint. */
+  .cell.invalid { color: #c0392b !important; -webkit-text-fill-color: #c0392b; }
   .highlighted  { background: #f2e6c4 !important; }   /* light gold row/col */
-  /* The cell you're actually in gets a deeper gold than its row/column.
-     Higher specificity than .highlighted, so it wins. */
-  .cell:focus   { background: #e7d199 !important; }
+  /* A preset cell sitting in a highlighted row/col keeps a more muted,
+     greyer gold so you can still tell it apart from the empty cells you
+     can actually type into. Three classes beats .highlighted's one. */
+  .cell.fixed.highlighted { background: #d8cdaa !important; }
+  /* The cell you're actually in gets a light-pink shade — distinct from the
+     two golds used for the highlighted row/column. */
+  .cell:focus   { background: #ffe6e6 !important; }
 
   /* iOS Safari dims disabled inputs by default; force the same look as
      desktop so preset cells aren't darker on mobile. */
@@ -252,19 +268,62 @@
     font-size: 0.82rem;
     color: var(--navy);
   }
+  /* On-brand "restyled" dropdown: navy border, rounded corners, a custom
+     gold caret (drawn as a tiny inline SVG), and a gold focus ring. We
+     hide the native arrow with appearance:none and draw our own. */
   select {
     width: 100%;
     margin-top: 5px;
-    padding: 6px 8px;
+    padding: 7px 30px 7px 10px;
     font-size: 0.85rem;
     font-family: inherit;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--white);
-    color: var(--text);
+    font-weight: 600;
+    color: var(--navy);
+    border: 1.5px solid var(--navy);
+    border-radius: 8px;
+    background-color: var(--white);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%23c9a256' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 11px;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
     cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
   }
-  select:focus { outline: 2px solid var(--navy); outline-offset: 1px; }
+  select:hover  { border-color: var(--gold); }
+  select:focus  {
+    outline: none;
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px rgba(201, 162, 86, 0.35);
+  }
+
+  /* ── Number pad (1–9 + Erase) ────────────────────────────────── */
+  /* Lets you fill cells by tapping — handy on phones where we suppress
+     the pop-up numeric keyboard. On desktop you can still just type. */
+  .numpad {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);   /* 1–9 plus the X erase button */
+    gap: 5px;
+    width: 100%;
+    max-width: 450px;
+    margin: 2px 0 6px;
+  }
+  .num-btn {
+    border: none;
+    background: var(--navy);
+    color: var(--white);
+    font: inherit;
+    font-weight: 700;
+    font-size: clamp(13px, 3.6vw, 18px);
+    padding: 10px 0;
+    border-radius: 8px;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: background 0.15s, color 0.15s;
+  }
+  .num-btn:hover { background: var(--gold); color: var(--navy); }
 
   @media (max-width: 580px) {
     .wrap { padding: 0 16px; }
@@ -303,6 +362,19 @@
 
     <div class="board" id="sudokuBoard"></div>
 
+    <div class="numpad" id="numpad">
+      <button class="num-btn" data-val="1">1</button>
+      <button class="num-btn" data-val="2">2</button>
+      <button class="num-btn" data-val="3">3</button>
+      <button class="num-btn" data-val="4">4</button>
+      <button class="num-btn" data-val="5">5</button>
+      <button class="num-btn" data-val="6">6</button>
+      <button class="num-btn" data-val="7">7</button>
+      <button class="num-btn" data-val="8">8</button>
+      <button class="num-btn" data-val="9">9</button>
+      <button class="num-btn" id="eraseBtn" data-val="erase" aria-label="Erase">&times;</button>
+    </div>
+
     <div id="message"></div>
 
     <div class="preset-box">
@@ -340,6 +412,10 @@ const timerEl = document.getElementById('timer');
 const messageEl = document.getElementById('message');
 const difficultySlider = document.getElementById('difficulty');
 const difficultyLabel = document.getElementById('difficultyLabel');
+const numpad = document.getElementById('numpad');
+
+// The editable cell the player last focused — the number pad fills THIS one.
+let activeCell = null;
 
 let timerInterval, seconds = 0;
 let solution = [];
@@ -561,17 +637,38 @@ function selectPreset(level, selElem) {
   }
 }
 
+// Apply a value (1–9) or clear (null) for a single editable cell, then
+// re-check correctness. Shared by both keyboard typing and the number pad.
+function enterValue(cell, val) {
+  if (!cell || cell.disabled) return;
+  const r = +cell.dataset.row, c = +cell.dataset.col;
+  if (val === null) {
+    cell.value = '';
+    userBoard[r][c] = null;
+    cell.classList.remove('invalid');
+    return;
+  }
+  cell.value = val;
+  userBoard[r][c] = val;
+  if (solution && solution.length) {
+    cell.classList.toggle('invalid', val !== solution[r][c]);
+    checkWin();
+  }
+}
+
 function renderBoard(puzzle) {
   boardEl.innerHTML = '';
+  activeCell = null;   // old cells are gone; don't keep a stale reference
   userBoard = JSON.parse(JSON.stringify(puzzle));
   for(let r=0;r<9;r++){
     for(let c=0;c<9;c++){
       const cell = document.createElement('input');
 
-      // Mobile Keyboard Optimization
-      cell.setAttribute('type', 'tel');
-      cell.setAttribute('inputmode', 'numeric');
-      cell.setAttribute('pattern', '[0-9]*');
+      // Mobile keyboard: inputmode="none" stops the on-screen numeric
+      // keypad from popping up on phones (the player uses our number pad
+      // instead), while a physical/desktop keyboard still types normally.
+      cell.setAttribute('type', 'text');
+      cell.setAttribute('inputmode', 'none');
 
       cell.maxLength = 1;
       cell.classList.add('cell');
@@ -583,8 +680,10 @@ function renderBoard(puzzle) {
       if(r===8) cell.classList.add('border-bottom');
       if(c===8) cell.classList.add('border-right');
 
-      cell.addEventListener('focus', (e) => {
-        e.target.select();
+      cell.addEventListener('focus', () => {
+        // Note: no .select() here — selecting the digit made it highlight
+        // when the cell was re-focused after a number-pad tap.
+        activeCell = cell;
         highlightRowCol(r,c);
       });
 
@@ -595,17 +694,7 @@ function renderBoard(puzzle) {
       } else {
         cell.addEventListener('input', () => {
           let val = parseInt(cell.value);
-          if(isNaN(val)||val<1||val>9){
-            cell.value=''; userBoard[r][c]=null;
-            cell.classList.remove('invalid');
-            return;
-          }
-          userBoard[r][c] = val;
-          // Check correctness immediately if solution exists
-          if(solution && solution.length) {
-             cell.classList.toggle('invalid', val !== solution[r][c]);
-             checkWin();
-          }
+          enterValue(cell, (isNaN(val) || val < 1 || val > 9) ? null : val);
         });
       }
       boardEl.appendChild(cell);
@@ -659,26 +748,70 @@ function checkWin(){
   messageEl.textContent = '🎉 You Win!';
 }
 
-// Arrow keys: jump to the next EDITABLE (non-preset) cell in that direction.
+// Arrow keys: jump to the next EDITABLE (non-preset) cell, wrapping past
+// the end of a line so navigation flows continuously.
+//   • Left/Right walk the 81 cells in reading order (row by row), so going
+//     right off the end of a row lands on the first empty cell of the next.
+//   • Up/Down walk them column by column, so going down off the bottom of a
+//     column lands on the first empty cell of the next column.
+// We turn each cell into a single index in the chosen order, then step that
+// index ±1 (skipping preset cells) until we find an editable one.
 boardEl.addEventListener('keydown', (e) => {
   const active = document.activeElement;
   if (!active || !active.classList.contains('cell')) return;
 
-  let dr = 0, dc = 0;
-  if (e.key === 'ArrowRight')      dc = 1;
-  else if (e.key === 'ArrowLeft')  dc = -1;
-  else if (e.key === 'ArrowUp')    dr = -1;
-  else if (e.key === 'ArrowDown')  dr = 1;
+  // Digit entry: handle it ourselves instead of letting the browser insert
+  // the character. Because each cell is maxlength=1, the browser would block
+  // a new keystroke when the cell already holds a number (nothing selected to
+  // overwrite). Setting the value directly via enterValue always replaces it.
+  if (/^[1-9]$/.test(e.key)) {
+    if (!active.disabled) { e.preventDefault(); enterValue(active, parseInt(e.key)); }
+    return;
+  }
+  // Backspace / Delete / 0 clear the cell.
+  if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') {
+    if (!active.disabled) { e.preventDefault(); enterValue(active, null); }
+    return;
+  }
+
+  let axis, step;
+  if (e.key === 'ArrowRight')      { axis = 'row'; step = 1; }
+  else if (e.key === 'ArrowLeft')  { axis = 'row'; step = -1; }
+  else if (e.key === 'ArrowDown')  { axis = 'col'; step = 1; }
+  else if (e.key === 'ArrowUp')    { axis = 'col'; step = -1; }
   else return;
 
-  e.preventDefault();   // don't move the text caret / scroll the page
-  let r = +active.dataset.row + dr;
-  let c = +active.dataset.col + dc;
-  while (r >= 0 && r < 9 && c >= 0 && c < 9) {
-    const next = boardEl.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
+  e.preventDefault();   // don't scroll the page
+  const r = +active.dataset.row, c = +active.dataset.col;
+  // Reading order indexes by row first; column order indexes by column first.
+  const idx = axis === 'row' ? r * 9 + c : c * 9 + r;
+
+  for (let i = idx + step; i >= 0 && i < 81; i += step) {
+    const rr = axis === 'row' ? Math.floor(i / 9) : i % 9;
+    const cc = axis === 'row' ? i % 9 : Math.floor(i / 9);
+    const next = boardEl.querySelector(`.cell[data-row="${rr}"][data-col="${cc}"]`);
     if (next && !next.disabled) { next.focus(); return; }
-    r += dr; c += dc;   // skip over preset (disabled) cells
   }
+});
+
+// Number pad: tapping a digit (or Erase) fills the cell the player last
+// selected, then re-focuses it so the highlight returns. On phones this is
+// the main way to enter numbers, since we suppress the pop-up keyboard.
+numpad.querySelectorAll('.num-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (!activeCell || activeCell.disabled) return;
+    const v = btn.dataset.val;
+    enterValue(activeCell, v === 'erase' ? null : parseInt(v));
+    activeCell.focus();
+  });
+});
+
+// Clicking OUTSIDE the board (and away from the number pad) clears the
+// selection entirely — every cell returns to its normal shading.
+document.addEventListener('pointerdown', (e) => {
+  if (boardEl.contains(e.target) || numpad.contains(e.target)) return;
+  document.querySelectorAll('.cell.highlighted')
+          .forEach(x => x.classList.remove('highlighted'));
 });
 
 // Start
