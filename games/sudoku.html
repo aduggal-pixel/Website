@@ -208,19 +208,16 @@
   .cell.border-bottom { border-bottom: 2px solid var(--navy); }
 
   .cell.fixed   { background: #d4dcea; font-weight: 700; color: var(--navy); }
-  .cell.invalid { color: #c0392b !important; background: #ffe6e6;
-                  -webkit-text-fill-color: #c0392b; }
+  /* Wrong entries: red digit only — no background tint. */
+  .cell.invalid { color: #c0392b !important; -webkit-text-fill-color: #c0392b; }
   .highlighted  { background: #f2e6c4 !important; }   /* light gold row/col */
   /* A preset cell sitting in a highlighted row/col keeps a more muted,
      greyer gold so you can still tell it apart from the empty cells you
      can actually type into. Three classes beats .highlighted's one. */
   .cell.fixed.highlighted { background: #d8cdaa !important; }
-  /* After you click OUTSIDE the board, the cell you had selected stays
-     shaded light gold while the rest of its row/col reverts to normal. */
-  .cell.selected-cell { background: #f2e6c4 !important; }
-  /* The cell you're actually in gets a deeper gold than its row/column.
-     Higher specificity than .highlighted, so it wins. */
-  .cell:focus   { background: #e7d199 !important; }
+  /* The cell you're actually in gets a light-pink shade — distinct from the
+     two golds used for the highlighted row/column. */
+  .cell:focus   { background: #ffe6e6 !important; }
 
   /* iOS Safari dims disabled inputs by default; force the same look as
      desktop so preset cells aren't darker on mobile. */
@@ -307,33 +304,26 @@
      the pop-up numeric keyboard. On desktop you can still just type. */
   .numpad {
     display: grid;
-    grid-template-columns: repeat(9, 1fr);
+    grid-template-columns: repeat(10, 1fr);   /* 1–9 plus the X erase button */
     gap: 5px;
     width: 100%;
     max-width: 450px;
     margin: 2px 0 6px;
   }
   .num-btn {
-    border: 1.5px solid var(--navy);
-    background: var(--white);
-    color: var(--navy);
+    border: none;
+    background: var(--navy);
+    color: var(--white);
     font: inherit;
     font-weight: 700;
-    font-size: clamp(14px, 4vw, 18px);
+    font-size: clamp(13px, 3.6vw, 18px);
     padding: 10px 0;
     border-radius: 8px;
     cursor: pointer;
     touch-action: manipulation;
     transition: background 0.15s, color 0.15s;
   }
-  .num-btn:hover { background: var(--gold); color: var(--navy); border-color: var(--gold); }
-  #eraseBtn {
-    grid-column: 1 / -1;     /* full width on its own row */
-    font-size: 0.8rem;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-    padding: 8px 0;
-  }
+  .num-btn:hover { background: var(--gold); color: var(--navy); }
 
   @media (max-width: 580px) {
     .wrap { padding: 0 16px; }
@@ -382,7 +372,7 @@
       <button class="num-btn" data-val="7">7</button>
       <button class="num-btn" data-val="8">8</button>
       <button class="num-btn" data-val="9">9</button>
-      <button class="num-btn" id="eraseBtn" data-val="erase">Erase</button>
+      <button class="num-btn" id="eraseBtn" data-val="erase" aria-label="Erase">&times;</button>
     </div>
 
     <div id="message"></div>
@@ -690,12 +680,10 @@ function renderBoard(puzzle) {
       if(r===8) cell.classList.add('border-bottom');
       if(c===8) cell.classList.add('border-right');
 
-      cell.addEventListener('focus', (e) => {
-        e.target.select();
+      cell.addEventListener('focus', () => {
+        // Note: no .select() here — selecting the digit made it highlight
+        // when the cell was re-focused after a number-pad tap.
         activeCell = cell;
-        // A fresh selection clears any "clicked-outside" leftover shading.
-        document.querySelectorAll('.cell.selected-cell')
-                .forEach(x => x.classList.remove('selected-cell'));
         highlightRowCol(r,c);
       });
 
@@ -804,17 +792,12 @@ numpad.querySelectorAll('.num-btn').forEach(btn => {
   });
 });
 
-// Clicking OUTSIDE the board (and away from the number pad): keep the
-// selected cell shaded light gold, but clear its row/column highlight.
+// Clicking OUTSIDE the board (and away from the number pad) clears the
+// selection entirely — every cell returns to its normal shading.
 document.addEventListener('pointerdown', (e) => {
   if (boardEl.contains(e.target) || numpad.contains(e.target)) return;
   document.querySelectorAll('.cell.highlighted')
           .forEach(x => x.classList.remove('highlighted'));
-  if (activeCell) {
-    document.querySelectorAll('.cell.selected-cell')
-            .forEach(x => x.classList.remove('selected-cell'));
-    activeCell.classList.add('selected-cell');
-  }
 });
 
 // Start
