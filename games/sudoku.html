@@ -799,7 +799,10 @@ boardEl.addEventListener('keydown', (e) => {
     const rr = axis === 'row' ? Math.floor(i / 9) : i % 9;
     const cc = axis === 'row' ? i % 9 : Math.floor(i / 9);
     const next = boardEl.querySelector(`.cell[data-row="${rr}"][data-col="${cc}"]`);
-    if (next && !next.disabled) { next.focus({ preventScroll: true }); return; }
+    // Plain focus here (no preventScroll): the browser only scrolls when the
+    // target cell isn't fully visible, which is what we want for arrow nav on
+    // desktop. Direct taps and number-pad refocus use preventScroll instead.
+    if (next && !next.disabled) { next.focus(); return; }
   }
 });
 
