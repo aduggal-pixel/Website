@@ -760,6 +760,20 @@ boardEl.addEventListener('keydown', (e) => {
   const active = document.activeElement;
   if (!active || !active.classList.contains('cell')) return;
 
+  // Digit entry: handle it ourselves instead of letting the browser insert
+  // the character. Because each cell is maxlength=1, the browser would block
+  // a new keystroke when the cell already holds a number (nothing selected to
+  // overwrite). Setting the value directly via enterValue always replaces it.
+  if (/^[1-9]$/.test(e.key)) {
+    if (!active.disabled) { e.preventDefault(); enterValue(active, parseInt(e.key)); }
+    return;
+  }
+  // Backspace / Delete / 0 clear the cell.
+  if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') {
+    if (!active.disabled) { e.preventDefault(); enterValue(active, null); }
+    return;
+  }
+
   let axis, step;
   if (e.key === 'ArrowRight')      { axis = 'row'; step = 1; }
   else if (e.key === 'ArrowLeft')  { axis = 'row'; step = -1; }
