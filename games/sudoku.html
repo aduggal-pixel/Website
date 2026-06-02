@@ -687,6 +687,15 @@ function renderBoard(puzzle) {
         highlightRowCol(r,c);
       });
 
+      // Tapping a cell: focus it WITHOUT the browser auto-scrolling/
+      // recentering the page (mobile Safari recenters a focused input by
+      // default). We cancel the default focus and re-focus with preventScroll.
+      cell.addEventListener('pointerdown', (e) => {
+        if (cell.disabled) return;
+        e.preventDefault();
+        cell.focus({ preventScroll: true });
+      });
+
       if(puzzle[r][c] !== null){
         cell.value = puzzle[r][c];
         cell.disabled = true;
@@ -790,7 +799,7 @@ boardEl.addEventListener('keydown', (e) => {
     const rr = axis === 'row' ? Math.floor(i / 9) : i % 9;
     const cc = axis === 'row' ? i % 9 : Math.floor(i / 9);
     const next = boardEl.querySelector(`.cell[data-row="${rr}"][data-col="${cc}"]`);
-    if (next && !next.disabled) { next.focus(); return; }
+    if (next && !next.disabled) { next.focus({ preventScroll: true }); return; }
   }
 });
 
@@ -802,7 +811,7 @@ numpad.querySelectorAll('.num-btn').forEach(btn => {
     if (!activeCell || activeCell.disabled) return;
     const v = btn.dataset.val;
     enterValue(activeCell, v === 'erase' ? null : parseInt(v));
-    activeCell.focus();
+    activeCell.focus({ preventScroll: true });
   });
 });
 
